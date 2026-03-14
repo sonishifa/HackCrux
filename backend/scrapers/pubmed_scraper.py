@@ -95,6 +95,17 @@ class PubMedScraper:
                         if 3 < len(effect) < 40:
                             confirmed_effects.add(effect)
 
+            # Best effort extractive summary (Conclusion or just start of abstract)
+            summary = ""
+            for pattern in [r'(?i)conclusion[s]?\s*:\s*([^.]+)', r'(?i)findings\s*:\s*([^.]+)']:
+                found = re.search(pattern, text_lower)
+                if found:
+                    summary = found.group(1).strip()
+                    break
+            
+            if not summary:
+                summary = abstract["text"][:250] + "..." if len(abstract["text"]) > 250 else abstract["text"]
+
             # Build study reference
             if abstract.get("title"):
                 top_studies.append({
@@ -102,6 +113,7 @@ class PubMedScraper:
                     "url": abstract["url"],
                     "year": abstract.get("year", 0),
                     "journal": abstract.get("journal", ""),
+                    "summary": summary,
                 })
 
         return {

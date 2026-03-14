@@ -32,10 +32,10 @@ export default function ChatAssistant() {
         ...prev,
         {
           role: 'assistant',
-          content: data.response,
-          sources: data.sources || [],
-          treatment: data.treatment,
-          totalDiscussions: data.total_discussions,
+          content: data?.response || 'No response received. Please try again.',
+          sources: data?.sources || [],
+          treatment: data?.treatment,
+          totalDiscussions: data?.total_discussions,
         },
       ]);
     } catch (err) {
@@ -81,29 +81,42 @@ export default function ChatAssistant() {
             </div>
           </div>
 
-          <div className="chat-messages">
+          <div className="chat-messages" style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1, padding: '16px 20px', gap: '16px' }}>
             {messages.map((msg, i) => (
-              <div key={i}>
-                <div className={`chat-message ${msg.role}`}>
+              <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div className={`chat-message ${msg.role}`} style={{
+                  maxWidth: '85%',
+                  padding: '12px 16px',
+                  borderRadius: msg.role === 'user' ? '12px 12px 0 12px' : '12px 12px 12px 0',
+                  background: msg.role === 'user' ? '#3b82f6' : 'rgba(255, 255, 255, 0.05)',
+                  border: msg.role === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#f8fafc',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
                   <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="chat-sources">
-                      📚 Sources ({msg.sources.length}):
-                      {msg.sources.slice(0, 3).map((s, j) => (
-                        <a key={j} className="chat-source-link" href={s.url} target="_blank" rel="noopener noreferrer">
-                          [{s.source}] {s.text}
-                        </a>
-                      ))}
+                    <div className="chat-sources" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', fontSize: '12px' }}>
+                      <div style={{ color: '#94a3b8', marginBottom: '8px' }}>📚 Sources ({msg.sources.length}):</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {msg.sources.slice(0, 3).map((s, j) => (
+                          <a key={j} className="chat-source-link" href={s.url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            [{s.source}] {s.text}
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             ))}
             {loading && (
-              <div className="typing-indicator">
-                <div className="typing-dot" />
-                <div className="typing-dot" />
-                <div className="typing-dot" />
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div className="typing-indicator" style={{ display: 'flex', gap: '4px', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px 12px 12px 0', width: 'fit-content' }}>
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both' }} />
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.2s' }} />
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.4s' }} />
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />

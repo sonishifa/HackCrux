@@ -7,6 +7,15 @@ Includes credibility scoring, misinformation detection, and combination source t
 from typing import Dict, List, Any, Optional
 from collections import Counter, defaultdict
 
+try:
+    from nlp.llm_synthesis import synthesize_recovery_timeline, synthesize_sentiment, categorize_treatment, synthesize_disease_context, synthesize_approach_comparison
+except ImportError:
+    synthesize_recovery_timeline = None
+    synthesize_sentiment = None
+    categorize_treatment = None
+    synthesize_disease_context = None
+    synthesize_approach_comparison = None
+
 
 def aggregate_treatment_data(
     extracted_posts: List[Dict[str, Any]],
@@ -122,8 +131,7 @@ def aggregate_treatment_data(
         for dose, count in dosage_counter.most_common(5)
     ]
 
-    # Build recovery timeline
-    recovery_timeline = _build_recovery_timeline(treatment_posts)
+    # Recovery timeline is built later with LLM-first + fallback
 
     # Source breakdown
     source_counter = Counter(p["source"] for p in treatment_posts)
@@ -168,7 +176,7 @@ def aggregate_treatment_data(
         {
             "id": p["post_id"],
             "source": p["source"],
-            "text": p["text"][:200] + "..." if len(p["text"]) > 200 else p["text"],
+            "text": (p["text"][:200] + "...") if len(p["text"]) > 200 else p["text"],
             "full_text": p["text"],
             "timestamp": p["timestamp"],
             "url": p["url"],
@@ -182,6 +190,22 @@ def aggregate_treatment_data(
         for i, p in enumerate(treatment_posts)
     ]
 
+    # Enhanced Sentiment via LLM
+    if synthesize_sentiment:
+        llm_sentiment = synthesize_sentiment(treatment, sentiment, source_posts)
+        if llm_sentiment:
+            sentiment["llm_summary"] = llm_sentiment
+
+    # Build recovery timeline via LLM, fallback to generic
+    recovery_timeline = None
+    if synthesize_recovery_timeline:
+        # Extract temporal mentions to pass to LLM
+        temporal_data = _extract_temporal_mentions(treatment_posts)
+        recovery_timeline = synthesize_recovery_timeline(treatment, temporal_data, side_effects, avg_score)
+        
+    if not recovery_timeline:
+        recovery_timeline = _build_recovery_timeline(treatment_posts)
+
     # PubMed evidence
     pubmed_evidence = None
     if pubmed_data:
@@ -191,8 +215,27 @@ def aggregate_treatment_data(
             "top_studies": pubmed_data.get("top_studies", [])[:5],
         }
 
+    # Category
+    category = "Unknown"
+    if categorize_treatment:
+        category = categorize_treatment(treatment)
+
+    # Disease Context
+    disease_context = None
+    if synthesize_disease_context:
+        disease_context = synthesize_disease_context(treatment, source_posts)
+
+    # Approach Comparison (Allopathy vs Naturopathy vs Homeopathy etc.)
+    approach_comparison = None
+    if synthesize_approach_comparison:
+        approach_comparison = synthesize_approach_comparison(
+            treatment, category, effectiveness, side_effects, disease_context
+        )
+
     return {
         "treatment": treatment,
+        "category": category,
+        "disease_context": disease_context,
         "total_discussions": total_posts,
         "side_effects": side_effects,
         "sentiment": sentiment,
@@ -200,6 +243,7 @@ def aggregate_treatment_data(
         "combinations": combinations,
         "dosages": dosages,
         "recovery_timeline": recovery_timeline,
+        "approach_comparison": approach_comparison,
         "sources": sources,
         "credibility": credibility,
         "misinformation": misinformation,
@@ -218,6 +262,25 @@ def _effectiveness_label(positive: int, negative: int, total: int) -> str:
         return "Mixed Results"
     else:
         return "Limited Effectiveness"
+
+
+def _extract_temporal_mentions(posts: List[Dict[str, Any]]) -> Dict[str, int]:
+    mentions = Counter()
+    for post in posts:
+        text_lower = post["text"].lower()
+        if any(w in text_lower for w in ["first week", "week 1", "week one", "first few days"]):
+            mentions["Week 1"] += 1
+        if any(w in text_lower for w in ["week 2", "week two", "second week", "2 weeks"]):
+            mentions["Week 2"] += 1
+        if any(w in text_lower for w in ["week 3", "week three", "third week", "3 weeks"]):
+            mentions["Week 3"] += 1
+        if any(w in text_lower for w in ["month 1", "month one", "first month", "4 weeks", "week 4"]):
+            mentions["Month 1"] += 1
+        if any(w in text_lower for w in ["month 2", "2 months", "two months"]):
+            mentions["Month 2"] += 1
+        if any(w in text_lower for w in ["month 3", "3 months", "three months"]):
+            mentions["Month 3"] += 1
+    return dict(mentions)
 
 
 def _build_recovery_timeline(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -309,6 +372,7 @@ def compare_treatments(
         if data:
             comparison.append({
                 "treatment": name,
+                "category": data.get("category", "Unknown"),
                 "total_discussions": data["total_discussions"],
                 "top_side_effects": data["side_effects"][:5],
                 "sentiment": data["sentiment"],

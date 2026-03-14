@@ -66,21 +66,53 @@ export default function SentimentChart({ sentiment }) {
         </div>
       </div>
 
-      {/* Plain-English story */}
-      <div style={{
-        padding: '12px 14px', marginBottom: 16, borderRadius: 10,
-        background: `${story.color}10`,
-        border: `1px solid ${story.color}30`,
-        fontSize: 13, lineHeight: 1.6,
-      }}>
-        <div style={{ fontWeight: 700, color: story.color, marginBottom: 4 }}>
-          {story.icon} {story.headline}
+      {/* Plain-English story or LLM summary */}
+      {sentiment.llm_summary ? (
+        <div style={{
+          padding: '16px 18px', marginBottom: 16, borderRadius: 10,
+          background: 'rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          fontSize: 13, lineHeight: 1.6, color: '#e2e8f0'
+        }}>
+          <div style={{ fontWeight: 700, color: story.color, marginBottom: 8, fontSize: 14 }}>
+            {story.icon} AI Sentiment Analysis
+          </div>
+          <p style={{ marginBottom: 12 }}>{sentiment.llm_summary.summary}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {sentiment.llm_summary.positive_reasons?.length > 0 && (
+              <div>
+                <strong style={{ color: '#22c55e', display: 'block', marginBottom: 4 }}>Why Positive:</strong>
+                <ul style={{ margin: 0, paddingLeft: 16, color: '#94a3b8', fontSize: 12 }}>
+                  {sentiment.llm_summary.positive_reasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+            {sentiment.llm_summary.negative_reasons?.length > 0 && (
+              <div>
+                <strong style={{ color: '#ef4444', display: 'block', marginBottom: 4 }}>Why Negative:</strong>
+                <ul style={{ margin: 0, paddingLeft: 16, color: '#94a3b8', fontSize: 12 }}>
+                  {sentiment.llm_summary.negative_reasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ color: '#94a3b8' }}>{story.summary}</div>
-        <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
-          Based on {sentiment.total} patient discussions · Sentiment score: {sentiment.average_score > 0 ? '+' : ''}{sentiment.average_score} (−1 = most negative, +1 = most positive)
+      ) : (
+        <div style={{
+          padding: '12px 14px', marginBottom: 16, borderRadius: 10,
+          background: `${story.color}10`,
+          border: `1px solid ${story.color}30`,
+          fontSize: 13, lineHeight: 1.6,
+        }}>
+          <div style={{ fontWeight: 700, color: story.color, marginBottom: 4 }}>
+            {story.icon} {story.headline}
+          </div>
+          <div style={{ color: '#94a3b8' }}>{story.summary}</div>
+          <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+            Based on {sentiment.total} patient discussions · Sentiment score: {sentiment.average_score > 0 ? '+' : ''}{sentiment.average_score} (−1 = most negative, +1 = most positive)
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Chart + Legend */}
       <div className="sentiment-container">

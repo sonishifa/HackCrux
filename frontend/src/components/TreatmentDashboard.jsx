@@ -1,6 +1,5 @@
 import SideEffectChart from './SideEffectChart';
 import SentimentChart from './SentimentChart';
-import RecoveryTimeline from './RecoveryTimeline';
 import PatientJourney from './PatientJourney';
 import CombinationTherapy from './CombinationTherapy';
 import SourceTraceability from './SourceTraceability';
@@ -8,8 +7,10 @@ import TreatmentComparison from './TreatmentComparison';
 import MisinfoAlert from './MisinfoAlert';
 import TopicInsights from './TopicInsights';
 
-function GuideStrip({ treatment, total, sources }) {
+function GuideStrip({ treatment, total, sources, data }) {
   const sourceList = Object.keys(sources?.breakdown || {});
+  const topEffect = data.side_effects?.[0]?.name || 'no major side effects';
+  const effectiveness = data.effectiveness?.effectiveness_label?.toLowerCase() || 'mixed effectiveness';
   return (
     <div style={{
       padding: '14px 20px', marginBottom: 28, borderRadius: 12,
@@ -25,9 +26,11 @@ function GuideStrip({ treatment, total, sources }) {
           {i < sourceList.length - 2 ? ', ' : i < sourceList.length - 1 ? ' and ' : ''}
         </span>
       ))}{', '}
-      then used NLP to find patterns. Everything below comes from what real patients wrote —
-      not medical advice. Scroll down to see: side effects, how people felt, recovery timelines,
-      combination therapies, and the original source posts.
+      then used AI to find patterns. 
+      <div style={{ marginTop: 10, padding: 12, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <strong style={{ color: '#cbd5e1' }}>Summary so far:</strong> Patients generally describe this treatment as having <strong>{effectiveness}</strong>. 
+        The most frequently discussed side effect is <strong>{topEffect}</strong>.
+      </div>
     </div>
   );
 }
@@ -101,6 +104,11 @@ function PubMedEvidence({ evidence, patientSideEffects, treatment }) {
               <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>
                 {study.journal}{study.year ? ` (${study.year})` : ''}
               </div>
+              {study.summary && (
+                <div style={{ color: '#cbd5e1', fontSize: 11, marginTop: 6, fontStyle: 'italic', lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: 6, borderLeft: '2px solid rgba(59, 130, 246, 0.5)' }}>
+                  "{study.summary}"
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -148,16 +156,45 @@ export default function TreatmentDashboard({ data, onBack }) {
           </span>
           <span className="meta-badge positive">📊 {data.total_discussions} Discussions</span>
           <span className="meta-badge neutral">{data.effectiveness.effectiveness_label}</span>
-          {data.credibility && (
-            <span className={`meta-badge ${data.credibility.average_label === 'high' ? 'positive' : data.credibility.average_label === 'medium' ? 'neutral' : 'negative'}`}>
-              🛡️ {data.credibility.average_label.charAt(0).toUpperCase() + data.credibility.average_label.slice(1)} Credibility
-            </span>
-          )}
         </div>
       </div>
 
       {/* Guide strip */}
-      <GuideStrip treatment={data.treatment} total={data.total_discussions} sources={data.sources} />
+      <GuideStrip treatment={data.treatment} total={data.total_discussions} sources={data.sources} data={data} />
+
+      {/* Disease Context Summary */}
+      {data.disease_context && (
+        <div className="glass-card full-width" style={{ marginBottom: 28, borderLeft: '3px solid #6366f1' }}>
+          <div className="card-header" style={{ marginBottom: 16 }}>
+            <div className="card-icon" style={{ background: 'rgba(99, 102, 241, 0.15)' }}>🩺</div>
+            <div>
+              <div className="card-title">Condition Context</div>
+              <div className="card-subtitle">AI-generated summary of the medical condition being treated</div>
+            </div>
+          </div>
+          <div style={{ padding: '0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: '#94a3b8' }}>Target Condition:</span>
+              <span style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 500 }}>
+                {data.disease_context.condition}
+              </span>
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
+              {data.disease_context.context_summary}
+            </div>
+            {data.disease_context.related_treatments_mentioned?.length > 0 && (
+              <div>
+                <span style={{ fontSize: 12, color: '#64748b', marginRight: 8 }}>Other treatments mentioned for this condition:</span>
+                {data.disease_context.related_treatments_mentioned.map((rt, i) => (
+                  <span key={i} style={{ display: 'inline-block', color: '#94a3b8', fontSize: 12, border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 12, marginRight: 6, marginBottom: 6 }}>
+                    {rt}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 1. Content quality */}
       {data.misinformation?.flagged_count > 0 && (
@@ -225,10 +262,9 @@ export default function TreatmentDashboard({ data, onBack }) {
         <SentimentChart sentiment={data.sentiment} />
       </div>
 
-      {/* 6. Timeline + Combinations */}
-      <SectionLabel label="📅 Recovery Timeline & Combination Therapies" sub="Week-by-week timeline and other things patients used alongside this treatment — click any combination card to see the source quotes" />
-      <div className="dashboard-grid" style={{ marginBottom: 28 }}>
-        <RecoveryTimeline timeline={data.recovery_timeline} />
+      {/* 6. Combination Therapies */}
+      <SectionLabel label="💊 Combination Therapies" sub="Other things patients used alongside this treatment — click any card to see the source quotes" />
+      <div style={{ marginBottom: 28 }}>
         <CombinationTherapy combinations={data.combinations} treatment={data.treatment} />
       </div>
 
@@ -246,8 +282,16 @@ export default function TreatmentDashboard({ data, onBack }) {
         <SourceTraceability sourcePosts={data.source_posts} />
       </div>
 
-      {/* 9. Compare */}
-      <TreatmentComparison currentTreatment={data.treatment} />
+      {/* 9. Compare treatment approaches */}
+      <TreatmentComparison
+        currentTreatment={data.treatment}
+        category={data.category}
+        approachComparison={data.approach_comparison}
+        diseaseContext={data.disease_context}
+        effectiveness={data.effectiveness}
+        sentiment={data.sentiment}
+        sideEffects={data.side_effects}
+      />
     </div>
   );
 }

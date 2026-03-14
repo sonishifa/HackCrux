@@ -14,7 +14,7 @@ except ImportError:
 
 GROQ_MODEL = "llama-3.1-70b-versatile"
 
-SYSTEM_PROMPT = """You are CureInsight, a medical data analyst assistant. You analyze aggregated patient discussions to provide treatment insights.
+SYSTEM_PROMPT = """You are CureTrace, a medical data analyst assistant. You analyze aggregated patient discussions to provide treatment insights.
 
 Rules:
 - Only make claims supported by the provided patient data
@@ -131,7 +131,7 @@ def llm_chat_query(message: str, pipeline: Any) -> Optional[Dict[str, Any]]:
     source_posts = data.get("source_posts", [])
     scored = [(p, _score_relevance(p.get("text", ""), message)) for p in source_posts]
     scored.sort(key=lambda x: x[1], reverse=True)
-    top_posts = scored[:8]
+    top_posts = list(scored[:8])
 
     if top_posts:
         context_parts.append("\nRelevant patient excerpts:")

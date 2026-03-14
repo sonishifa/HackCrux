@@ -110,7 +110,7 @@ function App() {
         <div className="header-brand">
           <div className="header-logo">🧬</div>
           <div>
-            <div className="header-title">CureInsight</div>
+            <div className="header-title">CureTrace</div>
             <div className="header-subtitle">Crowdsourced Treatment Intelligence</div>
           </div>
         </div>
@@ -171,6 +171,25 @@ function App() {
           <TreatmentDashboard data={data} onBack={handleBack} />
         )}
       </main>
+
+      {/* User Safety Disclaimer */}
+      <footer style={{
+        marginTop: 'auto',
+        padding: '24px',
+        textAlign: 'center',
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'rgba(15, 23, 42, 0.6)',
+        color: '#64748b',
+        fontSize: '11px',
+        lineHeight: '1.6'
+      }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <strong>User Safety Disclaimer:</strong> This platform ("CureTrace") aggregates patient experiences and public discussions from the internet using AI. 
+          The information presented should NOT be considered medical advice, a diagnosis, or an endorsement of any treatment. 
+          Individual responses to treatments vary significantly. Always consult with a qualified healthcare provider or doctor before starting, 
+          changing, or discontinuing any medical treatment.
+        </div>
+      </footer>
 
       <ChatAssistant />
     </div>

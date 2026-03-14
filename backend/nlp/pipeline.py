@@ -28,6 +28,7 @@ from nlp.drug_normalizer import drug_normalizer
 from scrapers.reddit_scraper import reddit_scraper
 from scrapers.web_scraper import web_scraper
 from scrapers.pubmed_scraper import pubmed_scraper
+from scrapers.youtube_scraper import youtube_scraper
 
 # Cache config
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "cache")
@@ -77,7 +78,8 @@ class TreatmentPipeline:
             self.active_scrapers.append("PubMed")
         if web_scraper.is_configured:
             self.active_scrapers.append("Drugs.com")
-        # YouTube intentionally excluded — requires API key
+        if youtube_scraper.is_configured:
+            self.active_scrapers.append("YouTube")
 
         self.live_scraping_enabled = len(self.active_scrapers) > 0
 
@@ -223,9 +225,14 @@ class TreatmentPipeline:
                 return ("drugs", web_scraper.scrape_treatment(treatment_name, max_posts=15), None)
             return ("drugs", [], None)
 
-        scrapers = [scrape_reddit, scrape_pubmed, scrape_drugs]
+        def scrape_youtube():
+            if youtube_scraper.is_configured:
+                return ("youtube", youtube_scraper.scrape_treatment(treatment_name, max_posts=15), None)
+            return ("youtube", [], None)
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        scrapers = [scrape_reddit, scrape_pubmed, scrape_drugs, scrape_youtube]
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {executor.submit(fn): fn.__name__ for fn in scrapers}
             for future in as_completed(futures, timeout=SCRAPER_TIMEOUT + 5):
                 try:
@@ -321,7 +328,7 @@ class TreatmentPipeline:
             "reddit": reddit_scraper.is_configured,
             "pubmed": pubmed_scraper.is_configured,
             "drugs_com": web_scraper.is_configured,
-            "youtube": False,  # Intentionally excluded
+            "youtube": youtube_scraper.is_configured,
             "active_sources": self.active_scrapers,
         }
 

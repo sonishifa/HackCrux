@@ -2,16 +2,16 @@ const THEME_ICONS = {
   'Side Effects & Symptoms': '⚠️',
   'Treatment Effectiveness': '✅',
   'Dosage & Administration': '💊',
-  'Lifestyle & Combinations': '🌱',
-  'Recovery & Timeline': '📅',
+  'Lifestyle & Diet Changes': '🌱',
+  'Long-term Management': '📋',
 };
 
 const THEME_COLORS = {
   'Side Effects & Symptoms': '#ef4444',
   'Treatment Effectiveness': '#22c55e',
   'Dosage & Administration': '#8b5cf6',
-  'Lifestyle & Combinations': '#06d6a0',
-  'Recovery & Timeline': '#3b82f6',
+  'Lifestyle & Diet Changes': '#06d6a0',
+  'Long-term Management': '#3b82f6',
 };
 
 export default function TopicInsights({ topics, treatment }) {

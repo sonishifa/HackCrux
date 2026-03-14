@@ -1,4 +1,4 @@
-# CureInsight — Crowdsourced Treatment Intelligence Platform
+# CureTrace — Crowdsourced Treatment Intelligence Platform
 
 AI-powered platform aggregating patient discussions into structured treatment insights.
 Live data from Reddit, PubMed, and Drugs.com.

@@ -1,12 +1,6 @@
 export default function SourceTraceability({ sourcePosts }) {
   if (!sourcePosts || sourcePosts.length === 0) return null;
 
-  const getCredBadgeClass = (label) => {
-    if (label === 'high') return 'cred-high';
-    if (label === 'medium') return 'cred-medium';
-    return 'cred-low';
-  };
-
   const getSourceIcon = (source) => {
     switch (source?.toLowerCase()) {
       case 'reddit': return '🟠';
@@ -47,12 +41,6 @@ export default function SourceTraceability({ sourcePosts }) {
                   ⭐ {post.rating}/10
                 </span>
               )}
-              {post.credibility && (
-                <span className={`cred-badge ${getCredBadgeClass(post.credibility.label)}`}>
-                  {post.credibility.label === 'high' ? '✅' : post.credibility.label === 'medium' ? '🔶' : '🔸'}
-                  {' '}{post.credibility.label} credibility
-                </span>
-              )}
               {post.misinfo && post.misinfo.is_flagged && (
                 <span className="misinfo-inline-flag">⚠️ flagged</span>
               )}
@@ -65,11 +53,6 @@ export default function SourceTraceability({ sourcePosts }) {
                 </span>
                 {post.timestamp && (
                   <span className="source-date">{post.timestamp}</span>
-                )}
-                {post.credibility && (
-                  <span style={{ fontSize: 11, color: '#64748b' }}>
-                    Score: {post.credibility.score}
-                  </span>
                 )}
                 {post.url && (
                   <a
