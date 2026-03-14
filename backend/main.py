@@ -15,6 +15,7 @@ load_dotenv()
 from routes.search import router as search_router
 from routes.compare import router as compare_router
 from routes.chat import router as chat_router
+from routes.nearby import router as nearby_router
 from nlp.pipeline import pipeline
 
 
@@ -67,6 +68,7 @@ app.add_middleware(
 app.include_router(search_router)
 app.include_router(compare_router)
 app.include_router(chat_router)
+app.include_router(nearby_router)
 
 
 @app.get("/health")

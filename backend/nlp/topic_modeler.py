@@ -46,13 +46,49 @@ def _tokenize(text: str) -> List[str]:
 
 
 def _extract_bigrams(text: str) -> List[str]:
-    """Extract meaningful two-word phrases from text."""
+    """Extract meaningful two-word phrases from text.
+    Both words must pass stop-word filter, and at least one must be medically relevant."""
     words = re.findall(r'[a-z]+', text.lower())
     filtered = [w for w in words if w not in STOP_WORDS and len(w) > 2]
     bigrams = []
     for i in range(len(filtered) - 1):
-        bigrams.append(f"{filtered[i]} {filtered[i+1]}")
+        w1, w2 = filtered[i], filtered[i+1]
+        # At least one word must be health/medical related to avoid noise
+        if _is_medical_word(w1) or _is_medical_word(w2):
+            bigrams.append(f"{w1} {w2}")
     return bigrams
+
+
+# Medical vocabulary for filtering irrelevant bigrams
+_MEDICAL_WORDS = {
+    # Body and health
+    "pain", "treatment", "doctor", "medicine", "drug", "dose", "dosage",
+    "symptom", "symptoms", "side", "effect", "effects", "health", "medical",
+    "patient", "hospital", "clinic", "therapy", "diagnosis", "condition",
+    "disease", "chronic", "acute", "medication", "prescription", "pills",
+    "tablet", "capsule", "injection", "surgery", "recovery", "healing",
+    # Body parts
+    "head", "chest", "stomach", "heart", "lung", "liver", "kidney",
+    "blood", "brain", "skin", "bone", "joint", "muscle", "throat",
+    "eye", "ear", "nose", "mouth", "back", "neck",
+    # Symptoms
+    "fever", "cough", "cold", "nausea", "fatigue", "diarrhea", "vomiting",
+    "headache", "dizziness", "rash", "swelling", "bleeding", "cramps",
+    "inflammation", "infection", "anxiety", "depression", "insomnia",
+    "constipation", "bloating", "numbness", "weakness", "tiredness",
+    # Treatments
+    "diet", "exercise", "yoga", "fasting", "supplements", "vitamin",
+    "antibiotic", "painkiller", "steroid", "insulin", "aspirin",
+    "ibuprofen", "paracetamol", "ayurveda", "homeopathy", "naturopathy",
+    # Outcomes
+    "improvement", "relief", "cure", "cured", "healed", "recovered",
+    "worse", "worsened", "stable", "controlled", "managed",
+    "effective", "ineffective", "helped", "reduced", "increased",
+}
+
+def _is_medical_word(word: str) -> bool:
+    """Check if a word is medically relevant."""
+    return word in _MEDICAL_WORDS or any(mw in word for mw in _MEDICAL_WORDS if len(mw) > 4)
 
 
 # Topic definitions with seed phrases and keywords (multi-word where possible)
@@ -125,7 +161,7 @@ TOPIC_SEEDS = {
 def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_words: int = 6) -> List[Dict[str, Any]]:
     """
     Discover topics from patient discussions using multi-word phrase matching.
-    Returns meaningful themes with descriptive keyword phrases.
+    Returns meaningful themes with descriptive keyword phrases and example posts.
     """
     if not posts or len(posts) < 3:
         return []
@@ -140,7 +176,7 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
     # Count single-word tokens
     word_counts = Counter(all_tokens)
 
-    # Count bigrams
+    # Count bigrams (now filtered for medical relevance)
     bigram_counts = Counter()
     for post in posts:
         bigrams = _extract_bigrams(post.get("text", ""))
@@ -172,20 +208,16 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
 
         # Build final keyword list: prefer phrases > bigrams > single words
         final_keywords = []
-        # Add matched phrases first
         for phrase, c in sorted(phrase_matches, key=lambda x: x[1], reverse=True):
             if len(final_keywords) < n_words:
                 final_keywords.append(phrase)
 
-        # Add bigram matches
         for bigram, c in sorted(bigram_matches, key=lambda x: x[1], reverse=True):
             if len(final_keywords) < n_words and bigram not in final_keywords:
                 final_keywords.append(bigram)
 
         # Fill remaining with top single keywords (as descriptive phrases)
-        # Every single-word keyword is mapped to a multi-word phrase
         keyword_map = {
-            # Side Effects & Symptoms
             "nausea": "nausea symptoms", "fatigue": "chronic fatigue", "diarrhea": "digestive issues",
             "headache": "headache episodes", "dizziness": "dizziness episodes", "bloating": "abdominal bloating",
             "insomnia": "sleep difficulties", "anxiety": "anxiety management", "pain": "pain management",
@@ -193,38 +225,29 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
             "cramps": "muscle cramps", "tiredness": "persistent tiredness", "constipation": "constipation relief",
             "swelling": "swelling concerns", "irritation": "irritation symptoms", "inflammation": "inflammation response",
             "drowsiness": "daytime drowsiness", "numbness": "numbness and tingling",
-            # Treatment Effectiveness
             "improved": "symptom improvement", "better": "feeling better", "effective": "treatment effectiveness",
             "works": "how it works", "helped": "treatment helped", "controlled": "condition controlled",
             "stabilized": "condition stabilized", "normalized": "levels normalized", "reduced": "symptoms reduced",
             "results": "treatment results", "improvement": "noticeable improvement", "benefit": "treatment benefits",
             "success": "treatment success", "amazing": "positive outcomes", "relief": "symptom relief",
             "recovered": "recovery experience",
-            # Dosage & Administration
             "dose": "dosage adjustment", "dosage": "dosage guidelines", "pills": "pill schedule",
             "tablet": "tablet form", "daily": "daily routine", "morning": "morning dosage",
             "evening": "evening dosage", "food": "taking with food", "meals": "meal timing",
             "prescription": "prescription details", "prescribed": "doctor prescribed",
             "increase": "dose increase", "reduce": "dose reduction", "gradually": "gradual adjustment",
             "milligrams": "dosage amount",
-            # Lifestyle & Diet Changes
             "exercise": "physical exercise", "diet": "dietary changes", "walking": "walking routine",
             "yoga": "yoga practice", "fasting": "fasting approach", "weight": "weight management",
             "lifestyle": "lifestyle modification", "dietary": "dietary adjustments", "carb": "carb management",
             "keto": "keto diet approach", "mediterranean": "mediterranean diet", "probiotics": "probiotic supplements",
             "supplements": "dietary supplements", "nutrition": "nutrition planning", "sleep": "sleep quality",
-            # Long-term Management
             "months": "long-term outlook", "routine": "daily routine", "chronic": "chronic management",
             "management": "condition management", "monitor": "health monitoring", "ongoing": "ongoing treatment",
             "regular": "regular checkups", "maintaining": "maintaining progress", "adjustment": "treatment adjustment",
             "progress": "tracking progress", "sustained": "sustained results", "stable": "stable condition",
             "consistent": "consistent routine",
         }
-        top_singles = sorted(
-            [(w, word_counts.get(w, 0)) for w in seeds["keywords"] if word_counts.get(w, 0) > 0],
-            key=lambda x: x[1], reverse=True,
-        )
-        # Auto-generate fallback suffixes for any unmapped keywords
         _auto_suffixes = {
             "Side Effects & Symptoms": "symptoms",
             "Treatment Effectiveness": "outcomes",
@@ -233,6 +256,10 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
             "Long-term Management": "management",
         }
         auto_suffix = _auto_suffixes.get(theme, "related")
+        top_singles = sorted(
+            [(w, word_counts.get(w, 0)) for w in seeds["keywords"] if word_counts.get(w, 0) > 0],
+            key=lambda x: x[1], reverse=True,
+        )
         for w, c in top_singles:
             if len(final_keywords) >= n_words:
                 break
@@ -245,14 +272,12 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
         if final_keywords:
             keyword_counts_map = {}
             for kw in final_keywords:
-                # Count is either phrase match count, bigram count, or word count
                 count = 0
                 if kw in dict(phrase_matches):
                     count = dict(phrase_matches)[kw] * 3
                 elif kw in dict(bigram_matches):
                     count = dict(bigram_matches)[kw] * 2
                 else:
-                    # single word mapping — find original word
                     for orig, mapped in keyword_map.items():
                         if mapped == kw:
                             count = word_counts.get(orig, 0)
@@ -261,12 +286,51 @@ def discover_topics_simple(posts: List[Dict[str, Any]], n_topics: int = 5, n_wor
                         count = word_counts.get(kw, 1)
                 keyword_counts_map[kw] = count
 
+            # Find example posts for this topic
+            example_posts = []
+            all_seed_words = set(seeds["keywords"]) | set(w for phrase in seeds["phrases"] for w in phrase.split())
+            # Also check the final matched keywords (stripped phrases)
+            matched_words = set()
+            for kw in final_keywords:
+                matched_words.update(kw.lower().split())
+
+            # Pass 1: posts matching at least 1 seed word
+            scored_posts = []
+            for post in posts:
+                post_lower = post.get("text", "").lower()
+                matches = sum(1 for w in all_seed_words if w in post_lower)
+                matches += sum(1 for w in matched_words if w in post_lower and w not in STOP_WORDS and len(w) > 3)
+                if matches >= 1 and len(post.get("text", "")) > 30:
+                    scored_posts.append((matches, post))
+
+            # Sort by match count, take top 3
+            scored_posts.sort(key=lambda x: x[0], reverse=True)
+            for _, post in scored_posts[:3]:
+                text = post.get("text", "")
+                example_posts.append({
+                    "text": text[:200] + ("..." if len(text) > 200 else ""),
+                    "source": post.get("source", ""),
+                    "url": post.get("url", ""),
+                })
+
+            # Pass 2 fallback: if still empty, just grab any post
+            if not example_posts and posts:
+                for post in posts[:3]:
+                    text = post.get("text", "")
+                    if len(text) > 30:
+                        example_posts.append({
+                            "text": text[:200] + ("..." if len(text) > 200 else ""),
+                            "source": post.get("source", ""),
+                            "url": post.get("url", ""),
+                        })
+
             topics.append({
                 "theme": theme,
                 "keywords": final_keywords[:n_words],
                 "keyword_counts": keyword_counts_map,
                 "relevance_score": round(total_relevance / len(all_tokens) * 100, 2),
                 "total_mentions": total_relevance,
+                "example_posts": example_posts,
             })
 
     # Sort by relevance
@@ -291,3 +355,4 @@ def discover_topics_for_treatment(
         return []
 
     return discover_topics_simple(treatment_posts)
+

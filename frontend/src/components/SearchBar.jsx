@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const SUGGESTIONS = ['Metformin', 'Insulin', 'Lisinopril', 'Omeprazole', 'Amoxicillin', 'Ibuprofen'];
+// No hardcoded suggestions — everything is live search
 
 const STAGE_LABELS = {
   started: 'Starting search...',
@@ -51,7 +51,7 @@ export default function SearchBar({ onSearch, loading }) {
           <input
             type="text"
             className="search-input"
-            placeholder="Search a treatment (e.g., Metformin, Insulin...)"
+            placeholder="Search any disease or treatment (e.g., Diabetes, Migraine, PCOS...)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             disabled={loading}
@@ -73,17 +73,8 @@ export default function SearchBar({ onSearch, loading }) {
         </div>
       )}
 
-      <div className="quick-tags">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            className="quick-tag"
-            onClick={() => handleQuickTag(s)}
-            disabled={loading}
-          >
-            {s}
-          </button>
-        ))}
+      <div style={{ marginTop: 12, fontSize: 11, color: '#64748b', textAlign: 'center' }}>
+        Try searching: Diabetes, Migraine, PCOS, Lung Infection, Arthritis, Depression, or any treatment name
       </div>
     </div>
   );

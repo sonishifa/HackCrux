@@ -96,45 +96,82 @@ def synthesize_approach_comparison(
     disease_context: Optional[Dict] = None,
 ) -> Optional[List[Dict]]:
     """
-    Compare different treatment approaches (Allopathy, Naturopathy, Homeopathy, Lifestyle)
-    for the same disease/condition. Returns structured comparison data.
+    Compare different treatment approaches by scraping real data for each category.
+    Searches web for actual homeopathy, naturopathy, lifestyle approaches and
+    uses LLM to synthesize comparison from the scraped evidence.
     """
     client = _get_client()
     if not client:
         return None
 
-    condition = disease_context.get("condition", "the condition") if disease_context else "the condition"
-    related = disease_context.get("related_treatments_mentioned", []) if disease_context else []
+    condition = disease_context.get("condition", treatment) if disease_context else treatment
     top_effects = ", ".join(e["name"] for e in side_effects[:5]) if side_effects else "not specified"
     eff_label = effectiveness.get("effectiveness_label", "unknown")
 
-    prompt = f"""For patients treating '{condition}', compare different treatment approaches.
+    # Step 1: Scrape real data for each approach category
+    approach_queries = {
+        "Homeopathy": f"{condition} homeopathy treatment remedies",
+        "Naturopathy": f"{condition} natural remedies herbal treatment",
+        "Lifestyle": f"{condition} lifestyle changes diet exercise management",
+    }
 
-Current treatment: '{treatment}' (category: {category}, effectiveness: {eff_label})
-Known side effects: {top_effects}
-Other treatments patients mention: {', '.join(related) if related else 'none specified'}
+    scraped_data = {}
+    try:
+        from scrapers.web_scraper import scrape_web
+        for approach, query in approach_queries.items():
+            try:
+                posts = scrape_web(query)
+                if posts:
+                    # Collect text snippets from scraped results
+                    snippets = []
+                    for p in posts[:5]:
+                        text = p.get("text", "")
+                        if text and len(text) > 20:
+                            snippets.append(text[:300])
+                    if snippets:
+                        scraped_data[approach] = snippets
+            except Exception as e:
+                print(f"[Approach Scrape] {approach} scrape failed: {e}")
+    except ImportError:
+        print("[Approach Scrape] web_scraper not available, using LLM knowledge only")
 
-Return ONLY a JSON array of 3-4 objects comparing different treatment APPROACHES for '{condition}'.
-Each object must have these exact fields:
-- "approach": one of "Allopathy", "Naturopathy", "Homeopathy", or "Lifestyle"
-- "treatment_name": specific treatment name
-- "mechanism": 1 sentence how this works
-- "common_side_effects": array of strings
+    # Step 2: Build prompt with scraped evidence
+    evidence_sections = []
+    for approach, snippets in scraped_data.items():
+        evidence_sections.append(f"\n--- Real scraped data for {approach} ---\n" + "\n".join(f"- {s}" for s in snippets[:3]))
+
+    evidence_text = "\n".join(evidence_sections) if evidence_sections else "No web data was scraped. Use your medical knowledge."
+
+    prompt = f"""For the condition '{condition}', compare 4 treatment approaches using REAL DATA.
+
+Current conventional treatment: '{treatment}' (category: {category}, effectiveness: {eff_label})
+Known side effects of conventional treatment: {top_effects}
+
+{evidence_text}
+
+Based on the above real patient data and your medical knowledge, return ONLY a valid JSON array of 4 objects.
+Each object must have:
+- "approach": exactly one of "Allopathy", "Homeopathy", "Naturopathy", "Lifestyle"
+- "treatment_name": specific treatment/remedy name (be specific, not generic)
+- "mechanism": 1 sentence how it works
+- "common_side_effects": array of 2-3 strings
 - "patient_sentiment": "mostly positive", "mixed", or "limited evidence"
 - "avg_improvement_time": e.g. "2-4 weeks"
-- "details": 2-3 sentences
+- "details": 2-3 sentences based on REAL evidence where available
+- "source_info": brief note on where this info comes from (e.g. "Based on patient reports" or "Based on clinical evidence")
 
-Include '{treatment}' as the Allopathy entry. Return ONLY valid JSON, no markdown."""
+For Allopathy, use '{treatment}' as the treatment. Include real data from the scraped evidence where available.
+Return ONLY valid JSON array, no markdown, no explanation."""
 
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": "You compare medical treatment approaches. Return only valid JSON."},
+                {"role": "system", "content": "You are a medical comparison expert. You compare treatment approaches using evidence. Return only valid JSON."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            max_tokens=1000,
+            max_tokens=1200,
         )
 
         content = response.choices[0].message.content.strip()
@@ -146,6 +183,15 @@ Include '{treatment}' as the Allopathy entry. Return ONLY valid JSON, no markdow
 
         parsed = json.loads(content)
         if isinstance(parsed, list) and len(parsed) >= 2:
+            # Mark which approaches have scraped evidence
+            for item in parsed:
+                approach = item.get("approach", "")
+                if approach in scraped_data:
+                    item["has_evidence"] = True
+                elif approach == "Allopathy":
+                    item["has_evidence"] = True  # We have patient data
+                else:
+                    item["has_evidence"] = False
             return parsed[:5]
     except Exception as e:
         print(f"[LLM Approach Comparison] Error: {e}")

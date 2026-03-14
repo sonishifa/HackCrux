@@ -76,4 +76,12 @@ export function chatMessage(message) {
   });
 }
 
+// ─── Nearby Health Centers ───────────────────────────────────────────────────
+
+export function fetchNearby(pincode, type = 'hospital', country = 'India', radius = 5, treatment = '') {
+  const params = new URLSearchParams({ pincode, type, country, radius_km: radius });
+  if (treatment) params.append('treatment', treatment);
+  return apiFetch(`/api/nearby?${params}`);
+}
+
 export default API_BASE;

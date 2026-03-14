@@ -83,12 +83,20 @@ def aggregate_treatment_data(
     # Aggregate outcomes
     positive_outcomes = sum(1 for p in treatment_posts if p["outcomes"]["positive"])
     negative_outcomes = sum(1 for p in treatment_posts if p["outcomes"]["negative"])
+    # Check if this is a drug (has RxNorm match) vs a condition/disease
+    is_drug = _is_drug_name(treatment)
+
+    neutral_outcomes = total_posts - positive_outcomes - negative_outcomes
     effectiveness = {
         "positive_reports": positive_outcomes,
         "negative_reports": negative_outcomes,
+        "neutral_reports": neutral_outcomes,
+        "total_posts": total_posts,
         "positive_pct": round(positive_outcomes / total_posts * 100, 1),
         "negative_pct": round(negative_outcomes / total_posts * 100, 1),
-        "effectiveness_label": _effectiveness_label(positive_outcomes, negative_outcomes, total_posts)
+        "neutral_pct": round(neutral_outcomes / total_posts * 100, 1),
+        "is_drug": is_drug,
+        "effectiveness_label": _effectiveness_label(positive_outcomes, negative_outcomes, total_posts, is_drug)
     }
 
     # Aggregate combinations WITH source evidence
@@ -120,16 +128,17 @@ def aggregate_treatment_data(
         if count >= 1
     ]
 
-    # Aggregate dosages
-    dosage_counter = Counter()
-    for post in treatment_posts:
-        for dose in post["dosages"]:
-            dosage_counter[dose] += 1
-
-    dosages = [
-        {"dosage": dose, "count": count}
-        for dose, count in dosage_counter.most_common(5)
-    ]
+    # Aggregate dosages — only for drug searches so PCOS won't show random "2mg"
+    dosages = []
+    if is_drug:
+        dosage_counter = Counter()
+        for post in treatment_posts:
+            for dose in post["dosages"]:
+                dosage_counter[dose] += 1
+        dosages = [
+            {"dosage": dose, "count": count}
+            for dose, count in dosage_counter.most_common(5)
+        ]
 
     # Recovery timeline is built later with LLM-first + fallback
 
@@ -171,24 +180,23 @@ def aggregate_treatment_data(
         "top_reasons": list(set(all_reasons))[:5],
     }
 
-    # Source posts for traceability
-    source_posts = [
-        {
+    # Source posts for traceability — FIXED: uses proper enumerate index
+    source_posts = []
+    for idx, p in enumerate(treatment_posts):
+        source_posts.append({
             "id": p["post_id"],
             "source": p["source"],
             "text": (p["text"][:200] + "...") if len(p["text"]) > 200 else p["text"],
             "full_text": p["text"],
             "timestamp": p["timestamp"],
-            "url": p["url"],
-            "sentiment": treatment_sentiments[i]["label"],
+            "url": p.get("url", ""),
+            "sentiment": treatment_sentiments[idx]["label"] if idx < len(treatment_sentiments) else "neutral",
             "side_effects": p["side_effects"],
-            "credibility": treatment_credibility[i],
-            "misinfo": treatment_misinfo[i],
+            "credibility": treatment_credibility[idx] if idx < len(treatment_credibility) else {},
+            "misinfo": treatment_misinfo[idx] if idx < len(treatment_misinfo) else {},
             "video_title": p.get("video_title"),
             "rating": p.get("rating"),
-        }
-        for i, p in enumerate(treatment_posts)
-    ]
+        })
 
     # Enhanced Sentiment via LLM
     if synthesize_sentiment:
@@ -226,11 +234,15 @@ def aggregate_treatment_data(
         disease_context = synthesize_disease_context(treatment, source_posts)
 
     # Approach Comparison (Allopathy vs Naturopathy vs Homeopathy etc.)
+    # The LLM synthesis function now scrapes real web data for each approach category
     approach_comparison = None
     if synthesize_approach_comparison:
         approach_comparison = synthesize_approach_comparison(
             treatment, category, effectiveness, side_effects, disease_context
         )
+
+    # Generate AI Summary
+    ai_summary = _generate_summary(treatment, is_drug, effectiveness, side_effects, sentiment, total_posts, source_posts)
 
     return {
         "treatment": treatment,
@@ -249,11 +261,21 @@ def aggregate_treatment_data(
         "misinformation": misinformation,
         "source_posts": source_posts,
         "pubmed_evidence": pubmed_evidence,
+        "ai_summary": ai_summary,
     }
 
 
-def _effectiveness_label(positive: int, negative: int, total: int) -> str:
+def _effectiveness_label(positive: int, negative: int, total: int, is_drug: bool = True) -> str:
     positive_rate = positive / total if total > 0 else 0
+    if not is_drug:
+        # For conditions (PCOS, diabetes, etc.) — use patient experience language
+        if positive_rate >= 0.6:
+            return "Mostly Positive Experiences"
+        elif positive_rate >= 0.4:
+            return "Mixed Patient Experiences"
+        else:
+            return "Challenging Experiences Reported"
+    # For drugs (Metformin, Insulin, etc.)
     if positive_rate >= 0.7:
         return "Highly Effective"
     elif positive_rate >= 0.5:
@@ -262,6 +284,130 @@ def _effectiveness_label(positive: int, negative: int, total: int) -> str:
         return "Mixed Results"
     else:
         return "Limited Effectiveness"
+
+
+def _is_drug_name(name: str) -> bool:
+    """Check if the search term is a drug (vs a disease/condition/symptom).
+    Uses comprehensive keyword list + RxNorm check."""
+    condition_keywords = [
+        # Diseases
+        "syndrome", "disease", "disorder", "infection", "cancer", "tumor",
+        "diabetes", "pcos", "pcod", "asthma", "arthritis", "migraine",
+        "depression", "anxiety", "hypertension", "obesity", "flu", "cold",
+        "covid", "pneumonia", "bronchitis", "eczema", "psoriasis",
+        "thyroid", "lupus", "fibromyalgia", "epilepsy", "gout",
+        # Symptoms (searched as conditions)
+        "fever", "headache", "cough", "pain", "nausea", "fatigue",
+        "diarrhea", "vomiting", "rash", "sore throat", "dizziness",
+        "swelling", "bleeding", "cramp", "itch", "allergy", "allergies",
+        "constipation", "insomnia", "indigestion", "bloating",
+        # Body parts (searched as conditions)
+        "lung", "heart", "kidney", "liver", "skin", "acne",
+        "eye", "ear", "throat", "nose", "chest", "stomach",
+        "back pain", "joint", "muscle", "bone", "blood", "brain",
+        # Common condition names
+        "malaria", "typhoid", "dengue", "cholera", "jaundice",
+        "anemia", "ulcer", "hernia", "stroke", "paralysis",
+        "alzheimer", "parkinson", "dementia", "schizophrenia",
+        "bipolar", "adhd", "autism", "dyslexia",
+        "hiv", "aids", "tb", "tuberculosis", "hepatitis",
+        "measles", "mumps", "chickenpox", "smallpox",
+        "obesity", "overweight", "underweight",
+        "pregnancy", "menopause", "period", "menstrual",
+        "infertility", "impotence", "erectile",
+        "insomnia", "apnea", "narcolepsy",
+        "sciatica", "scoliosis", "osteoporosis",
+        "sinusitis", "tonsillitis", "laryngitis",
+    ]
+    name_lower = name.lower().strip()
+    # Direct match or contains condition keyword
+    if name_lower in condition_keywords:
+        return False
+    if any(kw in name_lower for kw in condition_keywords):
+        return False
+    # Try RxNorm — if it normalizes to a known drug, it's a drug
+    try:
+        from nlp.drug_normalizer import drug_normalizer
+        normalized = drug_normalizer.normalize_treatment_name(name)
+        if normalized.lower() != name_lower:
+            return True
+    except Exception:
+        pass
+    # LLM fallback: ask Groq if this is a drug or condition
+    try:
+        from nlp.llm_synthesis import _get_client
+        import json as _json
+        client = _get_client()
+        if client:
+            resp = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": f'Is "{name}" a pharmaceutical drug/medication or a disease/condition/symptom? Reply ONLY with JSON: {{"type": "drug"}} or {{"type": "condition"}}'}],
+                temperature=0, max_tokens=30,
+            )
+            content = resp.choices[0].message.content.strip()
+            if '```' in content:
+                content = content.split('```')[1].replace('json', '').strip()
+            parsed = _json.loads(content)
+            return parsed.get("type", "drug") == "drug"
+    except Exception:
+        pass
+    # Conservative default: if we can't tell, assume condition
+    return False
+
+
+def _generate_summary(treatment, is_drug, effectiveness, side_effects, sentiment, total_posts, source_posts):
+    """Generate a context-aware AI summary."""
+    top_effect = side_effects[0]["name"] if side_effects else None
+    eff_label = effectiveness["effectiveness_label"]
+    pos_pct = effectiveness["positive_pct"]
+    neg_pct = effectiveness["negative_pct"]
+    neutral_pct = effectiveness.get("neutral_pct", 0)
+    avg_sentiment = sentiment.get("average_score", 0)
+    sentiment_label = "positive" if avg_sentiment > 0.1 else "negative" if avg_sentiment < -0.1 else "neutral"
+
+    # Try LLM summary first
+    try:
+        from nlp.llm_synthesis import _get_client
+        import json as _json
+        client = _get_client()
+        if client:
+            context = f"""Generate a 2-3 sentence summary for a patient report about '{treatment}'.
+Data: {total_posts} patient discussions analyzed.
+- {'Drug/medication' if is_drug else 'Disease/condition/symptom'}
+- Patient sentiment: {sentiment_label} (score: {avg_sentiment})
+- {pos_pct}% positive outcomes, {neg_pct}% negative, {neutral_pct}% neutral
+- Top discussed side effect: {top_effect or 'none identified'}
+- Effectiveness: {eff_label}
+
+Make it specific to {treatment}. Don't mention side effects OF {treatment} if {treatment} is itself a symptom/condition.
+Return ONLY JSON: {{"summary": "..."}}"""
+            resp = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": "You write patient-friendly medical data summaries. Be factual and specific."}, {"role": "user", "content": context}],
+                temperature=0.2, max_tokens=200,
+            )
+            content = resp.choices[0].message.content.strip()
+            if '```' in content:
+                content = content.split('```json')[-1].split('```')[0].strip() if '```json' in content else content.split('```')[1].strip()
+            parsed = _json.loads(content)
+            if "summary" in parsed:
+                return parsed["summary"]
+    except Exception:
+        pass
+
+    # Fallback: context-aware template
+    if is_drug:
+        summary = f"Based on {total_posts} patient discussions, {treatment} shows {eff_label.lower()}."
+        if top_effect:
+            summary += f" The most commonly reported side effect is {top_effect}."
+        summary += f" {pos_pct}% of patients reported positive outcomes, while {neg_pct}% reported negative experiences."
+    else:
+        summary = f"Based on {total_posts} patient discussions about {treatment}, overall patient sentiment is {sentiment_label}."
+        if top_effect:
+            summary += f" Patients most frequently discuss {top_effect} in relation to {treatment}."
+        summary += f" {pos_pct}% of discussions reflect positive experiences managing {treatment}."
+
+    return summary
 
 
 def _extract_temporal_mentions(posts: List[Dict[str, Any]]) -> Dict[str, int]:

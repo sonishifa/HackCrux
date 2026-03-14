@@ -6,7 +6,7 @@ export default function ChatAssistant() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '👋 Hi! I\'m your **Treatment Intelligence Assistant**. Ask me about any treatment — side effects, effectiveness, timelines, combinations, or dosages.\n\nTry: *"What are common side effects of Metformin?"*',
+      content: '👋 Hi! I\'m your **CuraTrace Intelligence Assistant**. Ask me about any disease or treatment — side effects, effectiveness, timelines, or alternative approaches.\n\nTry: *"What are the treatment options for Migraine?"*',
       sources: [],
     },
   ]);

@@ -6,11 +6,12 @@ import SourceTraceability from './SourceTraceability';
 import TreatmentComparison from './TreatmentComparison';
 import MisinfoAlert from './MisinfoAlert';
 import TopicInsights from './TopicInsights';
+import NearbyHealthCenters from './NearbyHealthCenters';
+import HealthTimeline from './HealthTimeline';
 
 function GuideStrip({ treatment, total, sources, data }) {
   const sourceList = Object.keys(sources?.breakdown || {});
-  const topEffect = data.side_effects?.[0]?.name || 'no major side effects';
-  const effectiveness = data.effectiveness?.effectiveness_label?.toLowerCase() || 'mixed effectiveness';
+  const aiSummary = data.ai_summary;
   return (
     <div style={{
       padding: '14px 20px', marginBottom: 28, borderRadius: 12,
@@ -18,7 +19,7 @@ function GuideStrip({ treatment, total, sources, data }) {
       fontSize: 13, color: '#94a3b8', lineHeight: 1.7,
     }}>
       <span style={{ fontWeight: 600, color: '#f0f4ff' }}>📖 How to read this report: </span>
-      We scraped <strong style={{ color: '#3b82f6' }}>{total} real patient discussions</strong> about{' '}
+      We analyzed <strong style={{ color: '#3b82f6' }}>{total} real patient discussions</strong> about{' '}
       <strong style={{ color: '#06d6a0' }}>{treatment}</strong> from{' '}
       {sourceList.map((s, i) => (
         <span key={s}>
@@ -26,11 +27,13 @@ function GuideStrip({ treatment, total, sources, data }) {
           {i < sourceList.length - 2 ? ', ' : i < sourceList.length - 1 ? ' and ' : ''}
         </span>
       ))}{', '}
-      then used AI to find patterns. 
-      <div style={{ marginTop: 10, padding: 12, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-        <strong style={{ color: '#cbd5e1' }}>Summary so far:</strong> Patients generally describe this treatment as having <strong>{effectiveness}</strong>. 
-        The most frequently discussed side effect is <strong>{topEffect}</strong>.
-      </div>
+      then used AI to find patterns.
+      {aiSummary && (
+        <div style={{ marginTop: 10, padding: 12, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
+          <strong style={{ color: '#cbd5e1' }}>🤖 AI Summary:</strong>{' '}
+          <span style={{ color: '#e2e8f0' }}>{aiSummary}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -150,12 +153,19 @@ export default function TreatmentDashboard({ data, onBack }) {
           )}
         </div>
         <div className="dashboard-meta">
-          <span className={`meta-badge ${sentimentLabel}`}>
+          <span className={`meta-badge ${sentimentLabel}`} title={`Based on language analysis of ${data.total_discussions} posts. Positive = more patients used words like 'helped', 'great', 'improved'.`}>
             {sentimentLabel === 'positive' ? '👍' : sentimentLabel === 'negative' ? '👎' : '😐'}
             {' '}{sentimentLabel.charAt(0).toUpperCase() + sentimentLabel.slice(1)} Sentiment
+            <span style={{ display: 'block', fontSize: 10, opacity: 0.7, fontWeight: 400 }}>How patients feel overall</span>
           </span>
-          <span className="meta-badge positive">📊 {data.total_discussions} Discussions</span>
-          <span className="meta-badge neutral">{data.effectiveness.effectiveness_label}</span>
+          <span className="meta-badge positive" title={`Total number of patient discussions analyzed from all sources`}>
+            📊 {data.total_discussions} Discussions
+            <span style={{ display: 'block', fontSize: 10, opacity: 0.7, fontWeight: 400 }}>Posts analyzed from all sources</span>
+          </span>
+          <span className="meta-badge neutral" title={`${data.effectiveness.positive_pct}% positive, ${data.effectiveness.negative_pct}% negative, ${data.effectiveness.neutral_pct || 0}% neutral out of ${data.total_discussions} posts`}>
+            {data.effectiveness.effectiveness_label}
+            <span style={{ display: 'block', fontSize: 10, opacity: 0.7, fontWeight: 400 }}>{data.effectiveness.is_drug ? 'Based on outcome language' : 'Patient experience overview'}</span>
+          </span>
         </div>
       </div>
 
@@ -213,13 +223,24 @@ export default function TreatmentDashboard({ data, onBack }) {
       )}
 
       {/* 3. Effectiveness */}
-      <SectionLabel label="🎯 Effectiveness" sub="How many patients reported this treatment helped them" />
+      <SectionLabel
+        label={data.effectiveness.is_drug ? '🎯 Treatment Effectiveness' : '🎯 Patient Experience Overview'}
+        sub={data.effectiveness.is_drug
+          ? 'How many patients reported this treatment helped them'
+          : 'What patients are saying about their experience with this condition'
+        }
+      />
       <div className="glass-card" style={{ marginBottom: 28 }}>
         <div className="card-header">
           <div className="card-icon" style={{ background: 'rgba(34,197,94,0.15)' }}>🎯</div>
           <div>
-            <div className="card-title">Treatment Effectiveness</div>
-            <div className="card-subtitle">Detected from patient language — words like "helped", "stopped taking", "made it worse"</div>
+            <div className="card-title">{data.effectiveness.is_drug ? 'Treatment Effectiveness' : 'Patient Experience Overview'}</div>
+            <div className="card-subtitle">
+              {data.effectiveness.is_drug
+                ? 'Detected from patient language — words like "helped", "stopped taking", "made it worse"'
+                : 'Detected from how patients describe their experiences managing this condition'
+              }
+            </div>
           </div>
         </div>
         <div className="effectiveness-section">
@@ -227,16 +248,50 @@ export default function TreatmentDashboard({ data, onBack }) {
           <div className="effectiveness-stats">
             <div className="stat-item">
               <div className="stat-value positive">{data.effectiveness.positive_pct}%</div>
-              <div className="stat-label">Reported positive outcomes</div>
+              <div className="stat-label">
+                {data.effectiveness.is_drug ? 'Reported positive outcomes' : 'Positive experiences'}
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                  {data.effectiveness.positive_reports || 0} out of {data.effectiveness.total_posts || data.total_discussions} posts
+                </div>
+              </div>
             </div>
             <div className="stat-item">
               <div className="stat-value negative">{data.effectiveness.negative_pct}%</div>
-              <div className="stat-label">Reported negative outcomes</div>
+              <div className="stat-label">
+                {data.effectiveness.is_drug ? 'Reported negative outcomes' : 'Negative experiences'}
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                  {data.effectiveness.negative_reports || 0} out of {data.effectiveness.total_posts || data.total_discussions} posts
+                </div>
+              </div>
             </div>
+            {data.effectiveness.neutral_pct > 0 && (
+              <div className="stat-item">
+                <div className="stat-value" style={{ color: '#94a3b8' }}>{data.effectiveness.neutral_pct}%</div>
+                <div className="stat-label">
+                  Neutral / Informational
+                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                    {data.effectiveness.neutral_reports || 0} posts — shared info without expressing clear outcome
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="effectiveness-bar">
             <div className="ebar-positive" style={{ width: `${data.effectiveness.positive_pct}%` }} />
             <div className="ebar-negative" style={{ width: `${data.effectiveness.negative_pct}%` }} />
+            {data.effectiveness.neutral_pct > 0 && (
+              <div style={{ width: `${data.effectiveness.neutral_pct}%`, height: '100%', background: 'rgba(148,163,184,0.3)', borderRadius: 4 }} />
+            )}
+          </div>
+          {/* Interpretation */}
+          <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+            💡 <strong style={{ color: '#cbd5e1' }}>What this means:</strong>{' '}
+            {data.effectiveness.positive_pct >= 60
+              ? `Most patients (${data.effectiveness.positive_pct}%) reported positive outcomes with ${data.treatment}. This is a strong signal of effectiveness based on real patient experiences.`
+              : data.effectiveness.positive_pct >= 30
+              ? `${data.effectiveness.positive_pct}% of patients reported positive outcomes — results are mixed. Individual experiences may vary. The remaining ${data.effectiveness.neutral_pct || 0}% of posts were informational without expressing a clear positive or negative outcome.`
+              : `Only ${data.effectiveness.positive_pct}% reported positive outcomes. Many patients (${data.effectiveness.neutral_pct || 0}%) shared general information without strong opinions. This doesn't necessarily mean ineffective — it may reflect the nature of the condition.`
+            }
           </div>
           {data.dosages?.length > 0 && (
             <div style={{ marginTop: 14 }}>
@@ -265,7 +320,7 @@ export default function TreatmentDashboard({ data, onBack }) {
       {/* 6. Combination Therapies */}
       <SectionLabel label="💊 Combination Therapies" sub="Other things patients used alongside this treatment — click any card to see the source quotes" />
       <div style={{ marginBottom: 28 }}>
-        <CombinationTherapy combinations={data.combinations} treatment={data.treatment} />
+        <CombinationTherapy combinations={data.combinations} treatment={data.treatment} sourcePosts={data.source_posts} />
       </div>
 
       {/* 7. Topics */}
@@ -292,6 +347,18 @@ export default function TreatmentDashboard({ data, onBack }) {
         sentiment={data.sentiment}
         sideEffects={data.side_effects}
       />
+
+      {/* 10. Nearby Health Centers */}
+      <SectionLabel label="🗺 Find Nearby Health Centers" sub="Discover hospitals, clinics, and doctors near your location" />
+      <div style={{ marginBottom: 28 }}>
+        <NearbyHealthCenters treatment={data.treatment} />
+      </div>
+
+      {/* 11. My Health Timeline */}
+      <SectionLabel label="📋 My Health Timeline" sub="Track your personal treatment journey — stored locally on your device" />
+      <div style={{ marginBottom: 28 }}>
+        <HealthTimeline treatment={data.treatment} />
+      </div>
     </div>
   );
 }

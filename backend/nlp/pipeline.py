@@ -188,11 +188,18 @@ class TreatmentPipeline:
 
     def process_live(self, treatment_name: str) -> Optional[Dict[str, Any]]:
         """
-        Scrape all 3 sources CONCURRENTLY then run NLP.
-        Reddit + PubMed + Drugs.com run in parallel — total scraping time ~3–8s
-        instead of 30–60s sequential.
+        Scrape all sources CONCURRENTLY then run NLP.
+        CRITICAL: Clears per-search state first to prevent data mixing.
         """
         self.progress_log = []
+
+        # Clear per-search state — prevents data from previous searches bleeding in
+        self.raw_posts = []
+        self.cleaned_posts = []
+        self.extracted_posts = []
+        self.sentiment_results = []
+        self.credibility_results = []
+        self.misinfo_results = []
 
         # Step 0: Normalize
         self._log_progress(f"Normalizing '{treatment_name}'...")

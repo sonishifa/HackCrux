@@ -110,31 +110,39 @@ function App() {
         <div className="header-brand">
           <div className="header-logo">🧬</div>
           <div>
-            <div className="header-title">CureTrace</div>
+            <div className="header-title">CuraTrace</div>
             <div className="header-subtitle">Crowdsourced Treatment Intelligence</div>
           </div>
         </div>
         <div className="header-stats">
+          {stats.total_posts > 0 ? (
+            <>
+              <div className="header-stat">
+                <div className="header-stat-value">{stats.total_posts}</div>
+                <div className="header-stat-label">Discussions</div>
+              </div>
+              <div className="header-stat">
+                <div className="header-stat-value">{stats.treatments_count}</div>
+                <div className="header-stat-label">Treatments</div>
+              </div>
+            </>
+          ) : (
+            <div className="header-stat">
+              <div className="header-stat-value" style={{ color: '#22c55e' }}>Ready</div>
+              <div className="header-stat-label">Search any treatment</div>
+            </div>
+          )}
           <div className="header-stat">
-            <div className="header-stat-value">{stats.total_posts || '—'}</div>
-            <div className="header-stat-label">Discussions</div>
-          </div>
-          <div className="header-stat">
-            <div className="header-stat-value">{stats.treatments_count || '—'}</div>
-            <div className="header-stat-label">Treatments</div>
-          </div>
-          <div className="header-stat">
-            <div className="header-stat-value">{stats.active_sources?.length || '—'}</div>
-            <div className="header-stat-label">Sources</div>
+            <div className="header-stat-value">4</div>
+            <div className="header-stat-label">Live Sources</div>
           </div>
           {/* Source status badges */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 10 }}>
             {sourceBadges.map(({ key, label }) => {
               const live = sourceStatus[key];
-              if (live === undefined) return null;
               return (
-                <span key={key} style={{ color: live ? '#22c55e' : '#64748b' }}>
-                  {live ? '●' : '○'} {label}
+                <span key={key} style={{ color: live !== false ? '#22c55e' : '#64748b' }}>
+                  {live !== false ? '●' : '○'} {label}
                 </span>
               );
             })}
@@ -184,7 +192,7 @@ function App() {
         lineHeight: '1.6'
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <strong>User Safety Disclaimer:</strong> This platform ("CureTrace") aggregates patient experiences and public discussions from the internet using AI. 
+          <strong>User Safety Disclaimer:</strong> This platform ("CuraTrace") aggregates patient experiences and public discussions from the internet using AI. 
           The information presented should NOT be considered medical advice, a diagnosis, or an endorsement of any treatment. 
           Individual responses to treatments vary significantly. Always consult with a qualified healthcare provider or doctor before starting, 
           changing, or discontinuing any medical treatment.
