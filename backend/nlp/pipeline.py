@@ -1,13 +1,16 @@
 """
 NLP Pipeline Orchestrator — Full Dynamic Multi-Source Mode.
-No sample data dependency. Disk cache. Concurrent scrapers.
-Groq-powered chat and entity extraction (optional).
+Sources: Reddit JSON, PubMed (NIH), Drugs.com — all free, no API keys.
+YouTube is NOT included in scraping (requires key, omitted per spec).
+Concurrent scraping via ThreadPoolExecutor for 2–4s response times.
+Disk cache. Groq-powered chat and entity extraction (optional).
 """
 
 import json
 import os
 import time
 import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
@@ -23,13 +26,15 @@ from nlp.aggregator import aggregate_treatment_data, get_all_treatments, compare
 from nlp.drug_normalizer import drug_normalizer
 
 from scrapers.reddit_scraper import reddit_scraper
-from scrapers.youtube_scraper import youtube_scraper
 from scrapers.web_scraper import web_scraper
 from scrapers.pubmed_scraper import pubmed_scraper
 
 # Cache config
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "cache")
 CACHE_TTL_HOURS = int(os.getenv("CACHE_TTL_HOURS", "24"))
+
+# Per-scraper timeout in seconds
+SCRAPER_TIMEOUT = 20
 
 
 def _slug(name: str) -> str:
@@ -39,7 +44,8 @@ def _slug(name: str) -> str:
 class TreatmentPipeline:
     """
     Dynamic NLP pipeline. No sample data.
-    On search: check cache → scrape live → NLP → cache to disk.
+    On search: check cache → scrape live (concurrently) → NLP → cache to disk.
+    Active sources: Reddit JSON, PubMed (NIH eutils), Drugs.com — all key-free.
     """
 
     def __init__(self):
@@ -56,14 +62,14 @@ class TreatmentPipeline:
         self.is_initialized: bool = False
         self.stats: Dict[str, Any] = {}
         self.active_scrapers: List[str] = []
-        self.live_scraping_enabled: bool = True  # Always true — Reddit/PubMed/Drugs.com need no keys
+        self.live_scraping_enabled: bool = True
         self.progress_log: List[str] = []
 
     def initialize(self):
         """Load disk cache. No sample data needed."""
         start_time = time.time()
 
-        # Build scraper list
+        # Active scrapers — only key-free sources
         self.active_scrapers = []
         if reddit_scraper.is_configured:
             self.active_scrapers.append("Reddit")
@@ -71,8 +77,7 @@ class TreatmentPipeline:
             self.active_scrapers.append("PubMed")
         if web_scraper.is_configured:
             self.active_scrapers.append("Drugs.com")
-        if youtube_scraper.is_configured:
-            self.active_scrapers.append("YouTube")
+        # YouTube intentionally excluded — requires API key
 
         self.live_scraping_enabled = len(self.active_scrapers) > 0
 
@@ -101,7 +106,6 @@ class TreatmentPipeline:
                     with open(filepath, "r") as f:
                         cached = json.load(f)
 
-                    # Check TTL
                     cached_time = cached.get("_cached_at", 0)
                     age_hours = (time.time() - cached_time) / 3600
                     if age_hours > CACHE_TTL_HOURS:
@@ -138,27 +142,21 @@ class TreatmentPipeline:
 
     def _process_posts(self, posts: List[Dict], treatment_override: str = None):
         """Run the full NLP pipeline on a batch of posts."""
-        # Step 1: Clean & normalize
         cleaned = preprocess_batch(posts)
         self.cleaned_posts.extend(cleaned)
 
-        # Step 2: Extract entities
         extracted = process_all_posts(cleaned)
         self.extracted_posts.extend(extracted)
 
-        # Step 3: Sentiment (VADER — fast)
         sentiments = [analyze_sentiment(p["text"]) for p in extracted]
         self.sentiment_results.extend(sentiments)
 
-        # Step 4: Credibility scoring
         credibilities = [score_credibility(p) for p in cleaned]
         self.credibility_results.extend(credibilities)
 
-        # Step 5: Misinformation detection
         misinfos = [detect_misinformation(p.get("text", "")) for p in cleaned]
         self.misinfo_results.extend(misinfos)
 
-        # Step 6: Aggregate
         if treatment_override:
             treatments_to_process = [treatment_override]
         else:
@@ -167,7 +165,6 @@ class TreatmentPipeline:
         self.treatments = list(set(self.treatments + get_all_treatments(self.extracted_posts)))
 
         for treatment in treatments_to_process:
-            # Get PubMed evidence if available
             pubmed_data = self.pubmed_evidence.get(treatment)
 
             aggregated = aggregate_treatment_data(
@@ -181,7 +178,6 @@ class TreatmentPipeline:
             if aggregated:
                 self.aggregated_data[treatment] = aggregated
 
-        # Step 7: Topic modeling
         for treatment in treatments_to_process:
             topics = discover_topics_for_treatment(self.extracted_posts, treatment)
             self.topics[treatment] = topics
@@ -189,89 +185,103 @@ class TreatmentPipeline:
                 self.aggregated_data[treatment]["topics"] = topics
 
     def process_live(self, treatment_name: str) -> Optional[Dict[str, Any]]:
-        """Scrape all sources and process results. Returns aggregated data."""
+        """
+        Scrape all 3 sources CONCURRENTLY then run NLP.
+        Reddit + PubMed + Drugs.com run in parallel — total scraping time ~3–8s
+        instead of 30–60s sequential.
+        """
         self.progress_log = []
 
-        # Step 0: Normalize treatment name via RxNorm
+        # Step 0: Normalize
         self._log_progress(f"Normalizing '{treatment_name}'...")
         normalized = drug_normalizer.normalize_treatment_name(treatment_name)
         if normalized != treatment_name:
             self._log_progress(f"Normalized: '{treatment_name}' → '{normalized}'")
             treatment_name = normalized
 
-        self._log_progress(f"Scraping data for '{treatment_name}'...")
+        self._log_progress(f"Fetching data for '{treatment_name}' from {', '.join(self.active_scrapers)}...")
         start_time = time.time()
 
         all_posts = []
+        pubmed_evidence_result = {}
 
-        # Scrape Reddit (no key needed)
-        if reddit_scraper.is_configured:
-            self._log_progress("Fetching Reddit discussions...")
-            reddit_posts = reddit_scraper.scrape_treatment(treatment_name, max_posts=30)
-            all_posts.extend(reddit_posts)
+        # ── Concurrent scraping ────────────────────────────────────────────────
+        def scrape_reddit():
+            if reddit_scraper.is_configured:
+                return ("reddit", reddit_scraper.scrape_treatment(treatment_name, max_posts=20), None)
+            return ("reddit", [], None)
 
-        # Scrape PubMed (no key needed)
-        if pubmed_scraper.is_configured:
-            self._log_progress("Fetching PubMed studies...")
-            pubmed_posts = pubmed_scraper.scrape_treatment(treatment_name, max_posts=10)
-            all_posts.extend(pubmed_posts)
-            # Also get evidence for cross-referencing
-            evidence = pubmed_scraper.get_evidence(treatment_name)
-            self.pubmed_evidence[treatment_name] = evidence
+        def scrape_pubmed():
+            if pubmed_scraper.is_configured:
+                posts = pubmed_scraper.scrape_treatment(treatment_name, max_posts=8)
+                evidence = pubmed_scraper.get_evidence(treatment_name)
+                return ("pubmed", posts, evidence)
+            return ("pubmed", [], {})
 
-        # Scrape Drugs.com (no key needed)
-        if web_scraper.is_configured:
-            self._log_progress("Fetching Drugs.com reviews...")
-            web_posts = web_scraper.scrape_treatment(treatment_name, max_posts=20)
-            all_posts.extend(web_posts)
+        def scrape_drugs():
+            if web_scraper.is_configured:
+                return ("drugs", web_scraper.scrape_treatment(treatment_name, max_posts=15), None)
+            return ("drugs", [], None)
 
-        # Scrape YouTube (requires API key)
-        if youtube_scraper.is_configured:
-            self._log_progress("Fetching YouTube comments...")
-            yt_posts = youtube_scraper.scrape_treatment(treatment_name, max_posts=25)
-            all_posts.extend(yt_posts)
+        scrapers = [scrape_reddit, scrape_pubmed, scrape_drugs]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {executor.submit(fn): fn.__name__ for fn in scrapers}
+            for future in as_completed(futures, timeout=SCRAPER_TIMEOUT + 5):
+                try:
+                    source_key, posts, extra = future.result(timeout=SCRAPER_TIMEOUT)
+                    all_posts.extend(posts)
+                    if source_key == "pubmed" and extra:
+                        pubmed_evidence_result = extra
+                    src_count = len(posts)
+                    if src_count > 0:
+                        self._log_progress(f"✓ {source_key.capitalize()}: {src_count} posts")
+                except FuturesTimeout:
+                    self._log_progress(f"⚠ Scraper timed out")
+                except Exception as e:
+                    self._log_progress(f"⚠ Scraper error: {e}")
+
+        # Store PubMed evidence
+        if pubmed_evidence_result:
+            self.pubmed_evidence[treatment_name] = pubmed_evidence_result
 
         if not all_posts:
             self._log_progress(f"No posts found for '{treatment_name}'")
             return None
 
-        # Source breakdown
-        sources = {}
+        source_summary = {}
         for p in all_posts:
             src = p.get("source", "Unknown")
-            sources[src] = sources.get(src, 0) + 1
-        source_summary = ", ".join(f"{v} from {k}" for k, v in sources.items())
-        self._log_progress(f"Collected {len(all_posts)} posts ({source_summary})")
+            source_summary[src] = source_summary.get(src, 0) + 1
+        summary_str = ", ".join(f"{v} from {k}" for k, v in source_summary.items())
+        self._log_progress(f"Collected {len(all_posts)} posts ({summary_str})")
 
-        # Process through NLP pipeline
-        self._log_progress("Analyzing with NLP pipeline...")
+        # ── NLP pipeline ──────────────────────────────────────────────────────
+        self._log_progress("Analyzing posts (NLP pipeline)...")
         self._process_posts(all_posts, treatment_override=treatment_name)
 
-        # Save to disk cache
         result = self.aggregated_data.get(treatment_name)
         if result:
             self._save_to_cache(treatment_name, result)
-            self._log_progress("Cached to disk ✓")
 
         elapsed = round(time.time() - start_time, 2)
-        self._log_progress(f"Complete! Processed in {elapsed}s")
+        self._log_progress(f"Complete in {elapsed}s")
         self._update_stats(elapsed)
 
         return result
 
     def search_treatment(self, treatment_name: str) -> Optional[Dict[str, Any]]:
         """Search: normalize → check cache → scrape live."""
-        # Normalize first
         normalized = drug_normalizer.normalize_treatment_name(treatment_name)
         if normalized != treatment_name:
             treatment_name = normalized
 
-        # Check in-memory cache
+        # In-memory cache
         for key in self.aggregated_data:
             if key.lower() == treatment_name.lower():
                 return self.aggregated_data[key]
 
-        # Check disk cache
+        # Disk cache
         slug = _slug(treatment_name)
         cache_file = os.path.join(CACHE_DIR, f"{slug}.json")
         if os.path.exists(cache_file):
@@ -285,14 +295,12 @@ class TreatmentPipeline:
             except Exception:
                 pass
 
-        # Scrape live
         if self.live_scraping_enabled:
             return self.process_live(treatment_name)
 
         return None
 
     def get_treatments_list(self) -> List[Dict[str, Any]]:
-        """Get list of available treatments."""
         result = []
         for treatment in self.treatments:
             data = self.aggregated_data.get(treatment)
@@ -309,12 +317,11 @@ class TreatmentPipeline:
         return compare_treatments(self.aggregated_data, treatment_names)
 
     def get_source_status(self) -> Dict[str, Any]:
-        """Which scrapers are live."""
         return {
             "reddit": reddit_scraper.is_configured,
             "pubmed": pubmed_scraper.is_configured,
             "drugs_com": web_scraper.is_configured,
-            "youtube": youtube_scraper.is_configured,
+            "youtube": False,  # Intentionally excluded
             "active_sources": self.active_scrapers,
         }
 
@@ -349,7 +356,7 @@ class TreatmentPipeline:
             "source_status": self.get_source_status(),
             "pipeline_stages": [
                 "Drug Name Normalization (RxNorm)",
-                "Multi-Source Scraping (Reddit, PubMed, Drugs.com, YouTube)",
+                "Concurrent Scraping (Reddit, PubMed, Drugs.com)",
                 "Text Cleaning & Language Filtering",
                 "Entity Extraction (LLM + Patterns)",
                 "Sentiment Analysis (VADER)",
@@ -361,12 +368,8 @@ class TreatmentPipeline:
         }
 
     def chat_query(self, message: str) -> Dict[str, Any]:
-        """
-        Chat handler. Uses Groq LLM if available, falls back to keyword logic.
-        """
         message_lower = message.lower()
 
-        # Try LLM chat first
         try:
             from nlp.llm_chat import llm_chat_query
             result = llm_chat_query(message, self)
@@ -375,14 +378,11 @@ class TreatmentPipeline:
         except (ImportError, Exception):
             pass
 
-        # Fallback: keyword-based
         return self._keyword_chat(message)
 
     def _keyword_chat(self, message: str) -> Dict[str, Any]:
-        """Keyword-based chat fallback."""
         message_lower = message.lower()
 
-        # Identify treatment
         target_treatment = None
         for treatment in self.treatments:
             if treatment.lower() in message_lower:
@@ -390,7 +390,6 @@ class TreatmentPipeline:
                 break
 
         if not target_treatment:
-            # Try to trigger live scrape for unknown treatments
             words = message.split()
             for word in words:
                 if len(word) > 3 and word[0].isupper():
@@ -419,7 +418,6 @@ class TreatmentPipeline:
                 "treatment": target_treatment,
             }
 
-        # Build overview response
         top_effects = data.get("side_effects", [])[:3]
         effects_text = ", ".join(f"{e['name']} ({e['percentage']}%)" for e in top_effects)
         eff = data.get("effectiveness", {})

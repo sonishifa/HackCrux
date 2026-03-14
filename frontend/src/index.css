@@ -582,32 +582,33 @@ body::before {
   line-height: 1.5;
 }
 
-/* Combination Cards */
+/* Combination Cards — collapsible with source evidence */
 .combo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .combo-card {
-  padding: 16px;
+  padding: 14px 16px;
   background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  text-align: center;
-  transition: all 0.3s ease;
+  text-align: left;
+  transition: all 0.25s ease;
+  user-select: none;
 }
 
 .combo-card:hover {
   border-color: var(--accent-teal);
-  transform: translateY(-2px);
+  background: var(--bg-glass-hover);
 }
 
 .combo-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .combo-count {
@@ -616,8 +617,8 @@ body::before {
 }
 
 .combo-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
 /* Source List */

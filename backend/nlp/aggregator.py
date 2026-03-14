@@ -1,7 +1,7 @@
 """
 Aggregation Module
 Aggregates extracted entities across all posts to produce treatment-level intelligence.
-Includes credibility scoring and misinformation detection results.
+Includes credibility scoring, misinformation detection, and combination source tracing.
 """
 
 from typing import Dict, List, Any, Optional
@@ -20,7 +20,6 @@ def aggregate_treatment_data(
     Aggregate all extracted data for a specific treatment.
     Returns structured treatment intelligence.
     """
-    # Filter posts for this treatment
     treatment_lower = treatment.lower()
     treatment_posts = []
     treatment_sentiments = []
@@ -83,16 +82,31 @@ def aggregate_treatment_data(
         "effectiveness_label": _effectiveness_label(positive_outcomes, negative_outcomes, total_posts)
     }
 
-    # Aggregate combinations
+    # Aggregate combinations WITH source evidence
+    # combo_name -> list of {source, text_snippet, url, sentiment}
+    combo_posts: Dict[str, List[Dict]] = defaultdict(list)
     combination_counter = Counter()
-    for post in treatment_posts:
+
+    for i, post in enumerate(treatment_posts):
         for combo in post["combinations"]:
             combo_lower = combo.lower()
             if combo_lower != treatment_lower:
                 combination_counter[combo] += 1
+                # Store a short evidence snippet from this post
+                combo_posts[combo].append({
+                    "source": post["source"],
+                    "text": post["text"][:200] + ("..." if len(post["text"]) > 200 else ""),
+                    "url": post.get("url", ""),
+                    "sentiment": treatment_sentiments[i]["label"],
+                    "timestamp": post.get("timestamp", ""),
+                })
 
     combinations = [
-        {"name": combo, "count": count}
+        {
+            "name": combo,
+            "count": count,
+            "evidence": combo_posts[combo][:5],  # Up to 5 source posts
+        }
         for combo, count in combination_counter.most_common(10)
         if count >= 1
     ]
@@ -140,7 +154,7 @@ def aggregate_treatment_data(
     for m in flagged_posts:
         all_categories.extend(m.get("categories", []))
         all_reasons.extend(m.get("reasons", []))
-    
+
     misinformation = {
         "flagged_count": len(flagged_posts),
         "total_posts": total_posts,
@@ -149,7 +163,7 @@ def aggregate_treatment_data(
         "top_reasons": list(set(all_reasons))[:5],
     }
 
-    # Source posts for traceability — enhanced with credibility + misinfo
+    # Source posts for traceability
     source_posts = [
         {
             "id": p["post_id"],
@@ -195,7 +209,6 @@ def aggregate_treatment_data(
 
 
 def _effectiveness_label(positive: int, negative: int, total: int) -> str:
-    """Generate a human-readable effectiveness label."""
     positive_rate = positive / total if total > 0 else 0
     if positive_rate >= 0.7:
         return "Highly Effective"
@@ -214,7 +227,7 @@ def _build_recovery_timeline(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
     for post in posts:
         text_lower = post["text"].lower()
-        
+
         if any(w in text_lower for w in ["first week", "week 1", "week one", "first few days"]):
             side_effect_mentions["Week 1"] += 1
         if any(w in text_lower for w in ["week 2", "week two", "second week", "2 weeks"]):
@@ -280,7 +293,6 @@ def _build_recovery_timeline(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
 
 def get_all_treatments(extracted_posts: List[Dict[str, Any]]) -> List[str]:
-    """Get list of all unique treatments in the dataset."""
     treatments = set()
     for post in extracted_posts:
         treatments.add(post["treatment"])
@@ -291,7 +303,6 @@ def compare_treatments(
     aggregated_data: Dict[str, Dict[str, Any]],
     treatment_names: List[str]
 ) -> List[Dict[str, Any]]:
-    """Compare multiple treatments side by side."""
     comparison = []
     for name in treatment_names:
         data = aggregated_data.get(name)
