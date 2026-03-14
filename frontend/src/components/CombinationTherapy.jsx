@@ -1,35 +1,35 @@
 import { useState } from 'react';
 
-const THERAPY_ICONS = {
-  'Exercise': '🏃', 'Walking': '🚶', 'Running': '🏃', 'Yoga': '🧘',
-  'Physical Therapy': '💪', 'Stretching': '🤸', 'Strength Training': '🏋️',
-  'Diet': '🥗', 'Dietary Changes': '🥗', 'Dietary Control': '🥗',
-  'Low-Carb Diet': '🥗', 'Keto Diet': '🥑', 'Mediterranean Diet': '🫒',
-  'Dash Diet': '🥗', 'Low-Salt Diet': '🧂', 'Low Sodium': '🧂',
-  'Intermittent Fasting': '⏰', 'Probiotics': '🦠', 'Supplements': '💊',
-  'Vitamin': '💊', 'B12': '💊', 'Meditation': '🧘',
-  'Lifestyle Changes': '🌱', 'Weight Loss': '⚖️',
+const THERAPY_INITIALS = {
+  'Exercise': 'Ex', 'Walking': 'Wk', 'Running': 'Rn', 'Yoga': 'Yg',
+  'Physical Therapy': 'PT', 'Stretching': 'St', 'Strength Training': 'ST',
+  'Diet': 'Di', 'Dietary Changes': 'DC', 'Dietary Control': 'DC',
+  'Low-Carb Diet': 'LC', 'Keto Diet': 'Kt', 'Mediterranean Diet': 'MD',
+  'Dash Diet': 'DD', 'Low-Salt Diet': 'LS', 'Low Sodium': 'LS',
+  'Intermittent Fasting': 'IF', 'Probiotics': 'Pb', 'Supplements': 'Sp',
+  'Vitamin': 'Vt', 'B12': 'B12', 'Meditation': 'Me',
+  'Lifestyle Changes': 'LC', 'Weight Loss': 'WL',
 };
 
 const SOURCE_COLORS = {
   reddit: '#ff4500',
   'drugs.com': '#0066cc',
-  pubmed: '#10b981',
-  youtube: '#ef4444',
+  pubmed: '#1BA89C',
+  youtube: '#D32F2F',
 };
 
 const SENTIMENT_LABELS = {
-  positive: { label: 'Positive experience', color: '#22c55e' },
-  negative: { label: 'Negative experience', color: '#ef4444' },
-  neutral: { label: 'Neutral mention', color: '#94a3b8' },
+  positive: { label: 'Positive experience', color: '#43A047' },
+  negative: { label: 'Negative experience', color: '#D32F2F' },
+  neutral: { label: 'Neutral mention', color: '#7A8B9C' },
 };
 
 function SourceBadge({ source }) {
-  const color = SOURCE_COLORS[source?.toLowerCase()] || '#64748b';
+  const color = SOURCE_COLORS[source?.toLowerCase()] || '#7A8B9C';
   return (
     <span style={{
       fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-      background: `${color}20`, color, border: `1px solid ${color}40`,
+      background: `${color}15`, color, border: `1px solid ${color}30`,
       textTransform: 'uppercase', letterSpacing: 0.5,
     }}>
       {source}
@@ -41,6 +41,7 @@ function ComboCard({ combo, treatment }) {
   const [open, setOpen] = useState(false);
   const evidence = combo.evidence || [];
   const hasEvidence = evidence.length > 0;
+  const initial = THERAPY_INITIALS[combo.name] || combo.name.substring(0, 2).toUpperCase();
 
   return (
     <div
@@ -50,7 +51,7 @@ function ComboCard({ combo, treatment }) {
     >
       {/* Card header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="combo-icon">{THERAPY_ICONS[combo.name] || '💊'}</div>
+        <div className="combo-icon">{initial}</div>
         <div style={{ flex: 1 }}>
           <div className="combo-name">{combo.name}</div>
           <div className="combo-count">
@@ -58,7 +59,7 @@ function ComboCard({ combo, treatment }) {
           </div>
         </div>
         {hasEvidence && (
-          <div style={{ fontSize: 11, color: '#64748b', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#7A8B9C', padding: '3px 8px', background: 'rgba(21,101,192,0.04)', borderRadius: 6 }}>
             {open ? '▲ hide' : '▼ see why'}
           </div>
         )}
@@ -66,7 +67,7 @@ function ComboCard({ combo, treatment }) {
 
       {/* Source note */}
       {!open && hasEvidence && (
-        <div style={{ marginTop: 6, fontSize: 11, color: '#64748b', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div style={{ marginTop: 6, fontSize: 11, color: '#7A8B9C', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           From: {[...new Set(evidence.map(e => e.source))].map(s => (
             <SourceBadge key={s} source={s} />
           ))}
@@ -75,8 +76,8 @@ function ComboCard({ combo, treatment }) {
 
       {/* Collapsible evidence */}
       {open && hasEvidence && (
-        <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+        <div style={{ marginTop: 12, borderTop: '1px solid #E2E8F0', paddingTop: 10 }}>
+          <div style={{ fontSize: 11, color: '#4A5B6C', marginBottom: 8, fontWeight: 600 }}>
             What patients said about combining {treatment} with {combo.name}:
           </div>
           {evidence.map((ev, i) => {
@@ -84,17 +85,17 @@ function ComboCard({ combo, treatment }) {
             return (
               <div key={i} style={{
                 marginBottom: 10, padding: '10px 12px',
-                background: 'rgba(255,255,255,0.03)',
+                background: 'rgba(21,101,192,0.02)',
                 borderRadius: 8, borderLeft: `3px solid ${sent.color}40`,
               }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
                   <SourceBadge source={ev.source} />
                   <span style={{ fontSize: 10, color: sent.color }}>● {sent.label}</span>
                   {ev.timestamp && (
-                    <span style={{ fontSize: 10, color: '#64748b' }}>{ev.timestamp}</span>
+                    <span style={{ fontSize: 10, color: '#7A8B9C' }}>{ev.timestamp}</span>
                   )}
                 </div>
-                <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 12, color: '#4A5B6C', lineHeight: 1.5 }}>
                   "{ev.text}"
                 </div>
                 {ev.url && (
@@ -103,7 +104,7 @@ function ComboCard({ combo, treatment }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'none', display: 'inline-block', marginTop: 4 }}
+                    style={{ fontSize: 11, color: '#1565C0', textDecoration: 'none', display: 'inline-block', marginTop: 4 }}
                   >
                     ↗ View original post
                   </a>
@@ -123,7 +124,7 @@ export default function CombinationTherapy({ combinations, treatment }) {
   return (
     <div className="glass-card">
       <div className="card-header">
-        <div className="card-icon" style={{ background: 'rgba(6, 214, 160, 0.15)' }}>🔗</div>
+        <div className="card-icon" style={{ background: '#1BA89C' }}>+</div>
         <div>
           <div className="card-title">Combination Treatments</div>
           <div className="card-subtitle">
@@ -132,8 +133,8 @@ export default function CombinationTherapy({ combinations, treatment }) {
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12, padding: '8px 12px', background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.12)' }}>
-        ℹ️ These combinations come from real patient posts on Reddit, Drugs.com, and PubMed — not medical recommendations. Always consult your doctor before combining treatments.
+      <div style={{ fontSize: 12, color: '#7A8B9C', marginBottom: 12, padding: '8px 12px', background: 'rgba(21,101,192,0.03)', borderRadius: 8, border: '1px solid rgba(21,101,192,0.08)' }}>
+        Note: These combinations come from real patient posts on Reddit, Drugs.com, and PubMed — not medical recommendations. Always consult your doctor before combining treatments.
       </div>
 
       <div className="combo-grid">

@@ -6,7 +6,7 @@ export default function ChatAssistant() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '👋 Hi! I\'m your **CuraTrace Intelligence Assistant**. Ask me about any disease or treatment — side effects, effectiveness, timelines, or alternative approaches.\n\nTry: *"What are the treatment options for Migraine?"*',
+      content: 'Hi! I\'m your **CuraTrace Intelligence Assistant**. Ask me about any disease or treatment — side effects, effectiveness, timelines, or alternative approaches.\n\nTry: *"What are the treatment options for Migraine?"*',
       sources: [],
     },
   ]);
@@ -68,13 +68,13 @@ export default function ChatAssistant() {
   return (
     <>
       <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)} id="chat-toggle-btn">
-        {isOpen ? '✕' : '💬'}
+        {isOpen ? '✕' : 'Chat'}
       </button>
 
       {isOpen && (
         <div className="chat-panel" id="chat-panel">
           <div className="chat-header">
-            <div className="chat-header-icon">🤖</div>
+            <div className="chat-header-icon">AI</div>
             <div>
               <div className="chat-header-title">Treatment AI Assistant</div>
               <div className="chat-header-status">● Online — Powered by NLP</div>
@@ -88,19 +88,19 @@ export default function ChatAssistant() {
                   maxWidth: '85%',
                   padding: '12px 16px',
                   borderRadius: msg.role === 'user' ? '12px 12px 0 12px' : '12px 12px 12px 0',
-                  background: msg.role === 'user' ? '#3b82f6' : 'rgba(255, 255, 255, 0.05)',
-                  border: msg.role === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#f8fafc',
+                  background: msg.role === 'user' ? '#1565C0' : 'rgba(21, 101, 192, 0.04)',
+                  border: msg.role === 'user' ? 'none' : '1px solid #E2E8F0',
+                  color: msg.role === 'user' ? '#fff' : '#4A5B6C',
                   fontSize: '14px',
                   lineHeight: '1.5'
                 }}>
                   <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="chat-sources" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', fontSize: '12px' }}>
-                      <div style={{ color: '#94a3b8', marginBottom: '8px' }}>📚 Sources ({msg.sources.length}):</div>
+                    <div className="chat-sources" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E2E8F0', fontSize: '12px' }}>
+                      <div style={{ color: '#7A8B9C', marginBottom: '8px' }}>Sources ({msg.sources.length}):</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {msg.sources.slice(0, 3).map((s, j) => (
-                          <a key={j} className="chat-source-link" href={s.url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <a key={j} className="chat-source-link" href={s.url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#1565C0', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             [{s.source}] {s.text}
                           </a>
                         ))}
@@ -112,10 +112,10 @@ export default function ChatAssistant() {
             ))}
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div className="typing-indicator" style={{ display: 'flex', gap: '4px', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px 12px 12px 0', width: 'fit-content' }}>
-                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both' }} />
-                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.2s' }} />
-                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.4s' }} />
+                <div className="typing-indicator" style={{ display: 'flex', gap: '4px', padding: '12px 16px', background: 'rgba(21,101,192,0.04)', borderRadius: '12px 12px 12px 0', width: 'fit-content' }}>
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7A8B9C', animation: 'bounce 1.4s infinite ease-in-out both' }} />
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7A8B9C', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.2s' }} />
+                  <div className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7A8B9C', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.4s' }} />
                 </div>
               </div>
             )}
@@ -133,7 +133,7 @@ export default function ChatAssistant() {
               id="chat-input"
             />
             <button className="chat-send" onClick={handleSend} disabled={loading || !input.trim()}>
-              ➤
+              Send
             </button>
           </div>
         </div>

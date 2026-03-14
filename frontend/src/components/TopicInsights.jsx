@@ -1,19 +1,11 @@
 import { useState } from 'react';
 
-const THEME_ICONS = {
-  'Side Effects & Symptoms': '⚠️',
-  'Treatment Effectiveness': '✅',
-  'Dosage & Administration': '💊',
-  'Lifestyle & Diet Changes': '🌱',
-  'Long-term Management': '📋',
-};
-
 const THEME_COLORS = {
-  'Side Effects & Symptoms': '#ef4444',
-  'Treatment Effectiveness': '#22c55e',
-  'Dosage & Administration': '#8b5cf6',
-  'Lifestyle & Diet Changes': '#06d6a0',
-  'Long-term Management': '#3b82f6',
+  'Side Effects & Symptoms': '#D32F2F',
+  'Treatment Effectiveness': '#43A047',
+  'Dosage & Administration': '#1565C0',
+  'Lifestyle & Diet Changes': '#1BA89C',
+  'Long-term Management': '#1565C0',
 };
 
 const THEME_EXPLANATIONS = {
@@ -32,7 +24,7 @@ export default function TopicInsights({ topics, treatment }) {
   return (
     <div className="glass-card full-width">
       <div className="card-header">
-        <div className="card-icon" style={{ background: 'rgba(139, 92, 246, 0.15)' }}>🧠</div>
+        <div className="card-icon" style={{ background: '#1565C0' }}>T</div>
         <div>
           <div className="card-title">Discussion Topics</div>
           <div className="card-subtitle">Key themes discovered from {treatment} patient discussions — click any topic to see source evidence</div>
@@ -42,7 +34,7 @@ export default function TopicInsights({ topics, treatment }) {
       <div className="topic-grid">
         {topics.map((topic, i) => {
           const isExpanded = expandedTopic === i;
-          const color = THEME_COLORS[topic.theme] || '#3b82f6';
+          const color = THEME_COLORS[topic.theme] || '#1565C0';
           return (
             <div
               key={i}
@@ -55,16 +47,16 @@ export default function TopicInsights({ topics, treatment }) {
               onClick={() => setExpandedTopic(isExpanded ? null : i)}
             >
               <div className="topic-header">
-                <span className="topic-icon">
-                  {THEME_ICONS[topic.theme] || '📌'}
+                <span className="topic-icon" style={{ background: color }}>
+                  {topic.theme.charAt(0)}
                 </span>
                 <div style={{ flex: 1 }}>
                   <span className="topic-theme">{topic.theme}</span>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 11, color: '#7A8B9C', marginTop: 2, lineHeight: 1.4 }}>
                     {THEME_EXPLANATIONS[topic.theme] || 'Topics patients discuss'}
                   </div>
                 </div>
-                <span style={{ fontSize: 14, color: '#64748b', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                <span style={{ fontSize: 14, color: '#7A8B9C', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
               </div>
 
               <div className="topic-keywords">
@@ -100,25 +92,25 @@ export default function TopicInsights({ topics, treatment }) {
                   marginTop: 12, paddingTop: 12,
                   borderTop: `1px solid ${color}22`,
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 8 }}>
-                    📄 Source Evidence — where these topics come from:
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#4A5B6C', marginBottom: 8 }}>
+                    Source Evidence — where these topics come from:
                   </div>
                   {topic.example_posts.map((post, k) => (
                     <div key={k} style={{
                       padding: '8px 12px', marginBottom: 6,
-                      background: 'rgba(255,255,255,0.02)', borderRadius: 8,
+                      background: 'rgba(21,101,192,0.02)', borderRadius: 8,
                       borderLeft: `3px solid ${color}`,
-                      fontSize: 12, color: '#cbd5e1', lineHeight: 1.5,
+                      fontSize: 12, color: '#4A5B6C', lineHeight: 1.5,
                     }}>
                       <div style={{ fontStyle: 'italic', marginBottom: 4 }}>"{post.text}"</div>
-                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: '#64748b' }}>
-                        {post.source && <span style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 8px', borderRadius: 10 }}>{post.source}</span>}
+                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: '#7A8B9C' }}>
+                        {post.source && <span style={{ background: 'rgba(21,101,192,0.04)', padding: '1px 8px', borderRadius: 10 }}>{post.source}</span>}
                         {post.url && (
                           <a
                             href={post.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: '#3b82f6', textDecoration: 'none' }}
+                            style={{ color: '#1565C0', textDecoration: 'none' }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             View source →
@@ -131,7 +123,7 @@ export default function TopicInsights({ topics, treatment }) {
               )}
 
               {isExpanded && (!topic.example_posts || topic.example_posts.length === 0) && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${color}22`, fontSize: 11, color: '#64748b' }}>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${color}22`, fontSize: 11, color: '#7A8B9C' }}>
                   These themes were detected from keyword frequency analysis across all {treatment} discussions.
                 </div>
               )}

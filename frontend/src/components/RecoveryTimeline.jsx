@@ -4,13 +4,13 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
     return (
       <div className="glass-card">
         <div className="card-header">
-          <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)' }}>⏱️</div>
+          <div className="card-icon" style={{ background: '#1565C0' }}>RT</div>
           <div>
             <div className="card-title">Recovery Timeline</div>
             <div className="card-subtitle">Estimated time-to-improvement across treatment approaches</div>
           </div>
         </div>
-        <div style={{ padding: '16px 0', color: '#94a3b8', fontSize: 13 }}>
+        <div style={{ padding: '16px 0', color: '#7A8B9C', fontSize: 13 }}>
           Recovery estimates are being generated. Search again for updated results.
         </div>
       </div>
@@ -18,29 +18,29 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
   }
 
   const approachColors = {
-    'Allopathy': '#3b82f6',
-    'Naturopathy': '#06d6a0',
-    'Homeopathy': '#a78bfa',
-    'Lifestyle': '#f59e0b',
+    'Allopathy': '#1565C0',
+    'Naturopathy': '#1BA89C',
+    'Homeopathy': '#7B1FA2',
+    'Lifestyle': '#E6960A',
   };
 
-  const approachIcons = {
-    'Allopathy': '💊',
-    'Naturopathy': '🌿',
-    'Homeopathy': '🧪',
-    'Lifestyle': '🏃',
+  const approachLabels = {
+    'Allopathy': 'Al',
+    'Naturopathy': 'Na',
+    'Homeopathy': 'Ho',
+    'Lifestyle': 'Lf',
   };
 
   const confidenceBadge = {
-    'high': { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', text: 'High confidence' },
-    'medium': { bg: 'rgba(245,158,11,0.1)', color: '#f59e0b', text: 'Medium confidence' },
-    'low': { bg: 'rgba(239,68,68,0.1)', color: '#ef4444', text: 'Low confidence' },
+    'high': { bg: 'rgba(67,160,71,0.08)', color: '#43A047', text: 'High confidence' },
+    'medium': { bg: 'rgba(230,150,10,0.08)', color: '#E6960A', text: 'Medium confidence' },
+    'low': { bg: 'rgba(211,47,47,0.08)', color: '#D32F2F', text: 'Low confidence' },
   };
 
   return (
     <div className="glass-card">
       <div className="card-header">
-        <div className="card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)' }}>⏱️</div>
+        <div className="card-icon" style={{ background: '#1565C0' }}>RT</div>
         <div>
           <div className="card-title">Recovery Timeline</div>
           <div className="card-subtitle">Average time-to-improvement by treatment approach</div>
@@ -49,8 +49,8 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
         {estimates.map((est, i) => {
-          const color = approachColors[est.approach] || '#64748b';
-          const icon = approachIcons[est.approach] || '💉';
+          const color = approachColors[est.approach] || '#7A8B9C';
+          const label = approachLabels[est.approach] || est.approach.substring(0, 2);
           const conf = confidenceBadge[est.confidence] || confidenceBadge['medium'];
           const isCurrentTreatment = est.treatment_name?.toLowerCase() === treatment?.toLowerCase();
 
@@ -58,8 +58,8 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
             <div key={i} style={{
               padding: '14px 16px',
               borderRadius: 10,
-              background: isCurrentTreatment ? `${color}10` : 'rgba(255,255,255,0.02)',
-              border: `1px solid ${isCurrentTreatment ? `${color}40` : 'rgba(255,255,255,0.06)'}`,
+              background: isCurrentTreatment ? `${color}08` : 'rgba(21,101,192,0.02)',
+              border: `1px solid ${isCurrentTreatment ? `${color}30` : '#E2E8F0'}`,
               position: 'relative',
             }}>
               {isCurrentTreatment && (
@@ -71,13 +71,17 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
               )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 18 }}>{icon}</span>
+                <span style={{
+                  fontSize: 13, fontWeight: 700, color: '#fff',
+                  width: 32, height: 32, borderRadius: 8,
+                  background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{label}</span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: color }}>{est.approach}</div>
-                  <div style={{ fontSize: 12, color: '#cbd5e1' }}>{est.treatment_name}</div>
+                  <div style={{ fontSize: 12, color: '#4A5B6C' }}>{est.treatment_name}</div>
                 </div>
                 <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#f0f4ff' }}>{est.avg_improvement}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A2B3C' }}>{est.avg_improvement}</div>
                   <div style={{
                     fontSize: 10, padding: '1px 6px', borderRadius: 8,
                     background: conf.bg, color: conf.color, display: 'inline-block',
@@ -85,7 +89,7 @@ export default function RecoveryTimeline({ estimates, treatment, category }) {
                 </div>
               </div>
 
-              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{est.details}</div>
+              <div style={{ fontSize: 12, color: '#4A5B6C', lineHeight: 1.5 }}>{est.details}</div>
             </div>
           );
         })}

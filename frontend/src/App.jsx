@@ -108,7 +108,9 @@ function App() {
     <div className="app">
       <header className="header">
         <div className="header-brand">
-          <div className="header-logo">🧬</div>
+          <div className="header-logo">
+            <img src="/favicon.png" alt="CuraTrace" />
+          </div>
           <div>
             <div className="header-title">CuraTrace</div>
             <div className="header-subtitle">Crowdsourced Treatment Intelligence</div>
@@ -128,7 +130,7 @@ function App() {
             </>
           ) : (
             <div className="header-stat">
-              <div className="header-stat-value" style={{ color: '#22c55e' }}>Ready</div>
+              <div className="header-stat-value" style={{ color: '#43A047' }}>Ready</div>
               <div className="header-stat-label">Search any treatment</div>
             </div>
           )}
@@ -141,7 +143,7 @@ function App() {
             {sourceBadges.map(({ key, label }) => {
               const live = sourceStatus[key];
               return (
-                <span key={key} style={{ color: live !== false ? '#22c55e' : '#64748b' }}>
+                <span key={key} style={{ color: live !== false ? '#43A047' : '#7A8B9C' }}>
                   {live !== false ? '●' : '○'} {label}
                 </span>
               );
@@ -164,7 +166,7 @@ function App() {
                     : 'Scraping live data from Reddit, PubMed, Drugs.com...'}
                 </div>
                 {progressMessages.length > 1 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#64748b' }}>
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#7A8B9C' }}>
                     {progressMessages.map((msg, i) => (
                       <div key={i}>✓ {msg}</div>
                     ))}
@@ -185,9 +187,9 @@ function App() {
         marginTop: 'auto',
         padding: '24px',
         textAlign: 'center',
-        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-        background: 'rgba(15, 23, 42, 0.6)',
-        color: '#64748b',
+        borderTop: '1px solid #E2E8F0',
+        background: '#F0F4F8',
+        color: '#7A8B9C',
         fontSize: '11px',
         lineHeight: '1.6'
       }}>

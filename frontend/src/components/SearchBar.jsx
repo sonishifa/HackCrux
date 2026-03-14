@@ -47,7 +47,9 @@ export default function SearchBar({ onSearch, loading }) {
       </p>
       <form onSubmit={handleSubmit} className="search-container">
         <div className="search-wrapper">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
           <input
             type="text"
             className="search-input"
@@ -64,16 +66,16 @@ export default function SearchBar({ onSearch, loading }) {
 
       {/* Live source indicators */}
       {!loading && (
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 12, fontSize: 11, color: '#64748b' }}>
-          <span>📡 Live sources:</span>
-          <span style={{ color: '#22c55e' }}>● Reddit</span>
-          <span style={{ color: '#22c55e' }}>● PubMed</span>
-          <span style={{ color: '#22c55e' }}>● Drugs.com</span>
-          <span style={{ color: '#64748b' }}>○ YouTube (key optional)</span>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 12, fontSize: 11, color: '#7A8B9C' }}>
+          <span>Live sources:</span>
+          <span style={{ color: '#43A047' }}>● Reddit</span>
+          <span style={{ color: '#43A047' }}>● PubMed</span>
+          <span style={{ color: '#43A047' }}>● Drugs.com</span>
+          <span style={{ color: '#7A8B9C' }}>○ YouTube (key optional)</span>
         </div>
       )}
 
-      <div style={{ marginTop: 12, fontSize: 11, color: '#64748b', textAlign: 'center' }}>
+      <div style={{ marginTop: 12, fontSize: 11, color: '#7A8B9C', textAlign: 'center' }}>
         Try searching: Diabetes, Migraine, PCOS, Lung Infection, Arthritis, Depression, or any treatment name
       </div>
     </div>
