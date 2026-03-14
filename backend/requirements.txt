@@ -1,4 +1,13 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
-textblob
+vaderSentiment
+python-dotenv
+httpx
+beautifulsoup4
+groq
+lxml
+google-api-python-client
+# scispaCy (optional, requires Python <=3.13)
+# pip install spacy scispacy
+# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_ner_bc5cdr_md-0.5.4.tar.gz

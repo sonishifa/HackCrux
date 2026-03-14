@@ -1,31 +1,46 @@
 """
 Sentiment Analysis Module
-Uses TextBlob for lightweight sentiment classification of patient discussions.
+Uses VADER (Valence Aware Dictionary and sEntiment Reasoner) for fast,
+rule-based sentiment analysis. Sub-millisecond latency, no model downloads.
+Tuned for social media text which works well for patient forum discussions.
 """
 
-from textblob import TextBlob
-from typing import Dict, Any
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from typing import Dict, Any, List
+
+
+# Initialize analyzer once at module level
+_analyzer = SentimentIntensityAnalyzer()
 
 
 def analyze_sentiment(text: str) -> Dict[str, Any]:
     """
-    Analyze sentiment of a patient discussion post.
-    Returns sentiment label (positive/negative/neutral) and score.
+    Analyze sentiment of a patient discussion post using VADER.
+    Returns sentiment label (positive/negative/neutral) and compound score.
+    
+    VADER compound score ranges from -1 (most negative) to +1 (most positive):
+    - positive: compound >= 0.05
+    - negative: compound <= -0.05
+    - neutral: between -0.05 and 0.05
     """
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity  # -1 to 1
+    scores = _analyzer.polarity_scores(text)
+    compound = scores["compound"]
 
-    if polarity > 0.1:
+    if compound >= 0.05:
         label = "positive"
-    elif polarity < -0.1:
+    elif compound <= -0.05:
         label = "negative"
     else:
         label = "neutral"
 
     return {
         "label": label,
-        "score": round(polarity, 3),
-        "subjectivity": round(blob.sentiment.subjectivity, 3)
+        "score": round(compound, 3),
+        "details": {
+            "positive": round(scores["pos"], 3),
+            "negative": round(scores["neg"], 3),
+            "neutral": round(scores["neu"], 3),
+        }
     }
 
 

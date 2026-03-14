@@ -1,5 +1,6 @@
 """
 Pydantic schemas for API responses.
+Covers all layers of the Treatment Intelligence Platform.
 """
 
 from pydantic import BaseModel
@@ -53,6 +54,27 @@ class TimelinePhase(BaseModel):
     mentions: int
 
 
+class CredibilityBreakdown(BaseModel):
+    detail_level: Optional[float] = None
+    medical_terms: Optional[float] = None
+    specificity: Optional[float] = None
+    source_weight: Optional[float] = None
+    balance: Optional[float] = None
+
+
+class PostCredibility(BaseModel):
+    score: float
+    label: str
+    breakdown: CredibilityBreakdown
+
+
+class PostMisinfo(BaseModel):
+    is_flagged: bool
+    confidence: float
+    reasons: List[str]
+    categories: List[str]
+
+
 class SourcePost(BaseModel):
     id: int
     source: str
@@ -62,11 +84,56 @@ class SourcePost(BaseModel):
     url: str
     sentiment: str
     side_effects: List[str]
+    credibility: Optional[PostCredibility] = None
+    misinfo: Optional[PostMisinfo] = None
+    rating: Optional[float] = None
+    video_title: Optional[str] = None
 
 
 class Sources(BaseModel):
     breakdown: Dict[str, int]
     total_posts: int
+
+
+class CredibilityDistribution(BaseModel):
+    high: int
+    medium: int
+    low: int
+
+
+class Credibility(BaseModel):
+    average_score: float
+    average_label: str
+    distribution: CredibilityDistribution
+
+
+class Misinformation(BaseModel):
+    flagged_count: int
+    total_posts: int
+    flagged_pct: float
+    categories: Dict[str, int]
+    top_reasons: List[str]
+
+
+class TopicItem(BaseModel):
+    theme: str
+    keywords: List[str]
+    keyword_counts: Dict[str, int]
+    relevance_score: float
+    total_mentions: int
+
+
+class PubMedStudy(BaseModel):
+    title: str
+    url: str
+    year: int
+    journal: str
+
+
+class PubMedEvidence(BaseModel):
+    studies_count: int
+    confirmed_side_effects: List[str]
+    top_studies: List[PubMedStudy]
 
 
 class TreatmentIntelligence(BaseModel):
@@ -79,7 +146,11 @@ class TreatmentIntelligence(BaseModel):
     dosages: List[Dosage]
     recovery_timeline: List[TimelinePhase]
     sources: Sources
+    credibility: Optional[Credibility] = None
+    misinformation: Optional[Misinformation] = None
+    topics: Optional[List[TopicItem]] = None
     source_posts: List[SourcePost]
+    pubmed_evidence: Optional[PubMedEvidence] = None
 
 
 class TreatmentSummary(BaseModel):
@@ -113,3 +184,5 @@ class ComparisonItem(BaseModel):
     sentiment: Sentiment
     effectiveness: Effectiveness
     top_combinations: List[Combination]
+    credibility: Optional[Credibility] = None
+    misinformation: Optional[Misinformation] = None
