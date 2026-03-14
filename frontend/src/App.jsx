@@ -3,8 +3,7 @@ import './App.css';
 import SearchBar from './components/SearchBar';
 import TreatmentDashboard from './components/TreatmentDashboard';
 import ChatAssistant from './components/ChatAssistant';
-
-const API_BASE = 'http://localhost:8000';
+import { createSearchStream, searchTreatment, fetchStats, fetchHealth } from './api/client';
 
 function App() {
   const [data, setData] = useState(null);
@@ -17,18 +16,14 @@ function App() {
 
   // Fetch live stats and source status on mount
   useEffect(() => {
-    // Stats
-    fetch(`${API_BASE}/api/stats`)
-      .then(res => res.json())
+    fetchStats()
       .then(d => {
         if (d.total_posts !== undefined) setStats(d);
         if (d.source_status) setSourceStatus(d.source_status);
       })
       .catch(() => {});
 
-    // Health / source status
-    fetch(`${API_BASE}/health`)
-      .then(res => res.json())
+    fetchHealth()
       .then(d => {
         if (d.source_status) setSourceStatus(d.source_status);
       })
@@ -41,10 +36,8 @@ function App() {
     setProgressMessages([]);
 
     try {
-      // SSE streaming
-      const eventSource = new EventSource(
-        `${API_BASE}/api/search/stream?treatment=${encodeURIComponent(treatment)}`
-      );
+      // SSE streaming via client helper
+      const eventSource = createSearchStream(treatment);
 
       eventSource.onmessage = (event) => {
         const parsed = JSON.parse(event.data);
@@ -56,9 +49,7 @@ function App() {
           setData(parsed.data);
           setView('dashboard');
           setLoading(false);
-          // Refresh live stats after search completes
-          fetch(`${API_BASE}/api/stats`)
-            .then(r => r.json())
+          fetchStats()
             .then(d => {
               setStats(d);
               if (d.source_status) setSourceStatus(d.source_status);
@@ -74,11 +65,7 @@ function App() {
       eventSource.onerror = () => {
         eventSource.close();
         // Fallback to regular search
-        fetch(`${API_BASE}/api/search?treatment=${encodeURIComponent(treatment)}`)
-          .then(res => {
-            if (!res.ok) throw new Error('Treatment not found');
-            return res.json();
-          })
+        searchTreatment(treatment)
           .then(result => {
             setData(result);
             setView('dashboard');

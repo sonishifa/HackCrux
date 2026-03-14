@@ -1,32 +1,79 @@
-const API_BASE = 'http://localhost:8000';
+/**
+ * API Client — all backend calls go through here.
+ *
+ * The backend URL is set via the VITE_API_URL environment variable.
+ * If not set, it defaults to http://localhost:8000 for local development.
+ *
+ * To configure:
+ *   Create a .env file in the project root (same folder as package.json):
+ *     VITE_API_URL=http://localhost:8000
+ *
+ *   Or if the backend is on another machine/server:
+ *     VITE_API_URL=http://192.168.1.42:8000
+ */
 
-export async function searchTreatment(treatment) {
-  const res = await fetch(`${API_BASE}/api/search?treatment=${encodeURIComponent(treatment)}`);
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// ─── Generic fetch helper ────────────────────────────────────────────────────
+
+async function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail?.message || 'Treatment not found');
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail?.message || detail?.detail || `HTTP ${res.status}`);
   }
   return res.json();
 }
 
-export async function getTreatments() {
-  const res = await fetch(`${API_BASE}/api/treatments`);
-  if (!res.ok) throw new Error('Failed to fetch treatments');
-  return res.json();
+// ─── Search ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns an EventSource connected to the SSE streaming search endpoint.
+ * The caller is responsible for closing it.
+ */
+export function createSearchStream(treatment) {
+  const url = `${API_BASE}/api/search/stream?treatment=${encodeURIComponent(treatment)}`;
+  return new EventSource(url);
 }
 
-export async function compareTreatments(treatments) {
-  const res = await fetch(`${API_BASE}/api/compare?treatments=${encodeURIComponent(treatments.join(','))}`);
-  if (!res.ok) throw new Error('Failed to compare treatments');
-  return res.json();
+export function searchTreatment(treatment) {
+  return apiFetch(`/api/search?treatment=${encodeURIComponent(treatment)}`);
 }
 
-export async function chatMessage(message) {
-  const res = await fetch(`${API_BASE}/api/chat`, {
+// ─── Stats / Health ──────────────────────────────────────────────────────────
+
+export function fetchStats() {
+  return apiFetch('/api/stats');
+}
+
+export function fetchHealth() {
+  return apiFetch('/health');
+}
+
+// ─── Treatments list ─────────────────────────────────────────────────────────
+
+export function getTreatments() {
+  return apiFetch('/api/treatments');
+}
+
+// ─── Compare ─────────────────────────────────────────────────────────────────
+
+export function compareTreatments(treatmentList) {
+  const query = treatmentList.map(t => encodeURIComponent(t)).join(',');
+  return apiFetch(`/api/compare?treatments=${query}`);
+}
+
+// ─── Chat ────────────────────────────────────────────────────────────────────
+
+export function chatMessage(message) {
+  return apiFetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
   });
-  if (!res.ok) throw new Error('Chat request failed');
-  return res.json();
 }
+
+export default API_BASE;
