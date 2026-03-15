@@ -7,7 +7,7 @@ __pycache__/
 
 # local cache/data
 backend/data/cache/
-
+backend/data/
 # mac files
 .DS_Store
 

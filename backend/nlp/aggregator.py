@@ -62,41 +62,52 @@ def aggregate_treatment_data(
         for effect, count in side_effect_counter.most_common(15)
     ]
 
-    # Aggregate sentiment
+    # Aggregate sentiment (VADER-based)
     sentiment_counts = Counter(s["label"] for s in treatment_sentiments)
     avg_score = round(
         sum(s["score"] for s in treatment_sentiments) / len(treatment_sentiments), 3
     )
+
+    pos_count = sentiment_counts.get("positive", 0)
+    neg_count = sentiment_counts.get("negative", 0)
+    neu_count = sentiment_counts.get("neutral", 0)
+
     sentiment = {
-        "positive": sentiment_counts.get("positive", 0),
-        "negative": sentiment_counts.get("negative", 0),
-        "neutral": sentiment_counts.get("neutral", 0),
+        "positive": pos_count,
+        "negative": neg_count,
+        "neutral": neu_count,
         "average_score": avg_score,
         "total": total_posts,
         "distribution": {
-            "positive_pct": round(sentiment_counts.get("positive", 0) / total_posts * 100, 1),
-            "negative_pct": round(sentiment_counts.get("negative", 0) / total_posts * 100, 1),
-            "neutral_pct": round(sentiment_counts.get("neutral", 0) / total_posts * 100, 1),
+            "positive_pct": round(pos_count / total_posts * 100, 1),
+            "negative_pct": round(neg_count / total_posts * 100, 1),
+            "neutral_pct": round(neu_count / total_posts * 100, 1),
         }
     }
 
-    # Aggregate outcomes
-    positive_outcomes = sum(1 for p in treatment_posts if p["outcomes"]["positive"])
-    negative_outcomes = sum(1 for p in treatment_posts if p["outcomes"]["negative"])
-    # Check if this is a drug (has RxNorm match) vs a condition/disease
+    # Effectiveness — now derived from VADER sentiment (same source as Patient Sentiment)
+    # This ensures Overview and Patient Sentiment sections always show consistent numbers.
+    # Keyword-based outcomes (helped/works/terrible) are kept as supplementary context only.
     is_drug = _is_drug_name(treatment)
 
-    neutral_outcomes = total_posts - positive_outcomes - negative_outcomes
+    keyword_positive = sum(1 for p in treatment_posts if p["outcomes"]["positive"])
+    keyword_negative = sum(1 for p in treatment_posts if p["outcomes"]["negative"])
+
     effectiveness = {
-        "positive_reports": positive_outcomes,
-        "negative_reports": negative_outcomes,
-        "neutral_reports": neutral_outcomes,
+        "positive_reports": pos_count,
+        "negative_reports": neg_count,
+        "neutral_reports": neu_count,
         "total_posts": total_posts,
-        "positive_pct": round(positive_outcomes / total_posts * 100, 1),
-        "negative_pct": round(negative_outcomes / total_posts * 100, 1),
-        "neutral_pct": round(neutral_outcomes / total_posts * 100, 1),
+        "positive_pct": round(pos_count / total_posts * 100, 1),
+        "negative_pct": round(neg_count / total_posts * 100, 1),
+        "neutral_pct": round(neu_count / total_posts * 100, 1),
         "is_drug": is_drug,
-        "effectiveness_label": _effectiveness_label(positive_outcomes, negative_outcomes, total_posts, is_drug)
+        "effectiveness_label": _effectiveness_label(pos_count, neg_count, total_posts, is_drug),
+        # Supplementary keyword-based data (not used for primary percentages)
+        "outcome_keywords": {
+            "keyword_positive": keyword_positive,
+            "keyword_negative": keyword_negative,
+        },
     }
 
     # Aggregate combinations WITH source evidence

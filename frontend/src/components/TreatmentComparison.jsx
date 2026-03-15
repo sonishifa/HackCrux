@@ -66,16 +66,9 @@ export default function TreatmentComparison({ currentTreatment, category, approa
                   }}>CURRENT TREATMENT</div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span style={{
-                    fontSize: 13, fontWeight: 700, color: '#fff',
-                    width: 36, height: 36, borderRadius: 10,
-                    background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{meta.label}</span>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color }}>{a.approach}</div>
-                    <div style={{ fontSize: 11, color: '#7A8B9C' }}>{meta.desc}</div>
-                  </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color, borderLeft: `3px solid ${color}`, paddingLeft: 8 }}>{a.approach}</div>
+                  <div style={{ fontSize: 11, color: '#7A8B9C', marginTop: 3, paddingLeft: 11 }}>{meta.desc}</div>
                 </div>
 
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#4A5B6C', marginBottom: 6 }}>
@@ -116,6 +109,25 @@ export default function TreatmentComparison({ currentTreatment, category, approa
                       background: (a.patient_sentiment || '').includes('positive') ? 'rgba(67,160,71,0.08)' : 'rgba(230,150,10,0.08)',
                       color: (a.patient_sentiment || '').includes('positive') ? '#43A047' : '#E6960A',
                     }}>{a.patient_sentiment}</span>
+                  )}
+                </div>
+
+                {/* Source credibility indicator */}
+                <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #E2E8F0' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#7A8B9C',
+                  }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: a.has_evidence ? '#43A047' : '#E6960A',
+                      display: 'inline-block', flexShrink: 0,
+                    }} />
+                    <span>{a.has_evidence ? 'Verified from web sources' : 'Based on general medical knowledge'}</span>
+                  </div>
+                  {a.source_info && (
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
+                      {a.source_info}
+                    </div>
                   )}
                 </div>
               </div>

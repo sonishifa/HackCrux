@@ -272,28 +272,69 @@ async def find_nearby(
     # Step 2: Get specialty filter keywords
     filter_keywords, display_specialties = _get_specialties_for_treatment(treatment) if treatment else ([], [])
 
-    # Step 3: Overpass query — fetch ALL facilities of this type in the radius
-    amenity_map = {
-        "hospital": "hospital",
-        "clinic": "clinic",
-        "doctor": "doctors",
-        "pharmacy": "pharmacy",
-    }
-    amenity = amenity_map.get(type, "hospital")
+    # Step 3: Overpass query — STRICTLY fetch only the selected type
+    # Each type gets its own specific query to prevent category mixing
     delta = radius_km / 111.0
     bbox = f"{lat - delta},{lon - delta},{lat + delta},{lon + delta}"
 
-    overpass_query = f"""
-    [out:json][timeout:20];
-    (
-      node["amenity"="{amenity}"]({bbox});
-      way["amenity"="{amenity}"]({bbox});
-      relation["amenity"="{amenity}"]({bbox});
-      node["healthcare"]({bbox});
-      way["healthcare"]({bbox});
-    );
-    out body center 80;
-    """
+    if type == "hospital":
+        # ONLY hospitals — no clinics, no doctors
+        overpass_query = f"""
+        [out:json][timeout:20];
+        (
+          node["amenity"="hospital"]({bbox});
+          way["amenity"="hospital"]({bbox});
+          relation["amenity"="hospital"]({bbox});
+        );
+        out body center 80;
+        """
+    elif type == "clinic":
+        # ONLY clinics and health centres
+        overpass_query = f"""
+        [out:json][timeout:20];
+        (
+          node["amenity"="clinic"]({bbox});
+          way["amenity"="clinic"]({bbox});
+          node["healthcare"="clinic"]({bbox});
+          way["healthcare"="clinic"]({bbox});
+          node["healthcare"="centre"]({bbox});
+          way["healthcare"="centre"]({bbox});
+        );
+        out body center 80;
+        """
+    elif type == "doctor":
+        # ONLY doctor practices
+        overpass_query = f"""
+        [out:json][timeout:20];
+        (
+          node["amenity"="doctors"]({bbox});
+          way["amenity"="doctors"]({bbox});
+          node["healthcare"="doctor"]({bbox});
+          way["healthcare"="doctor"]({bbox});
+        );
+        out body center 80;
+        """
+    elif type == "pharmacy":
+        # ONLY pharmacies / medical stores / chemists
+        overpass_query = f"""
+        [out:json][timeout:20];
+        (
+          node["amenity"="pharmacy"]({bbox});
+          way["amenity"="pharmacy"]({bbox});
+          node["shop"="chemist"]({bbox});
+          way["shop"="chemist"]({bbox});
+        );
+        out body center 80;
+        """
+    else:
+        overpass_query = f"""
+        [out:json][timeout:20];
+        (
+          node["amenity"="hospital"]({bbox});
+          way["amenity"="hospital"]({bbox});
+        );
+        out body center 80;
+        """
 
     try:
         async with httpx.AsyncClient(headers=HEADERS, timeout=20) as client:

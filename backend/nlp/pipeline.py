@@ -384,6 +384,19 @@ class TreatmentPipeline:
     def chat_query(self, message: str) -> Dict[str, Any]:
         message_lower = message.lower()
 
+        # Guard: reject non-medical queries BEFORE any scraping or LLM calls
+        try:
+            from nlp.llm_chat import _is_medical_query, NON_MEDICAL_RESPONSE
+            if not _is_medical_query(message):
+                return {
+                    "response": NON_MEDICAL_RESPONSE,
+                    "sources": [],
+                    "treatment": None,
+                    "discussion_count": 0,
+                }
+        except ImportError:
+            pass
+
         try:
             from nlp.llm_chat import llm_chat_query
             result = llm_chat_query(message, self)
@@ -395,6 +408,7 @@ class TreatmentPipeline:
         return self._keyword_chat(message)
 
     def _keyword_chat(self, message: str) -> Dict[str, Any]:
+        """Keyword-based fallback chat when Groq LLM is not available."""
         message_lower = message.lower()
 
         target_treatment = None
@@ -403,22 +417,48 @@ class TreatmentPipeline:
                 target_treatment = treatment
                 break
 
+        # Try case-insensitive word matching
         if not target_treatment:
-            words = message.split()
+            words = [w.strip('?!.,') for w in message.split() if len(w.strip('?!.,')) > 3]
             for word in words:
-                if len(word) > 3 and word[0].isupper():
-                    result = self.search_treatment(word)
-                    if result:
-                        target_treatment = word
+                for cached in self.treatments:
+                    if word.lower() == cached.lower():
+                        target_treatment = cached
                         break
+                if target_treatment:
+                    break
+
+        # Try auto-scraping
+        if not target_treatment:
+            stop_words = {'what', 'are', 'the', 'for', 'how', 'does', 'is', 'can', 'about',
+                         'tell', 'explain', 'compare', 'side', 'effects', 'treatment', 'options',
+                         'help', 'work', 'effective', 'best', 'there', 'which', 'when', 'why',
+                         'have', 'been', 'any', 'with', 'from', 'this', 'that', 'and', 'but'}
+            candidates = [w.strip('?!.,') for w in message.split()
+                         if w.strip('?!.,').lower() not in stop_words and len(w.strip('?!.,')) > 3]
+            for candidate in candidates:
+                try:
+                    result = self.search_treatment(candidate)
+                    if result:
+                        target_treatment = candidate
+                        break
+                except Exception:
+                    pass
 
         if not target_treatment:
+            cached_list = ', '.join(self.treatments[:10]) if self.treatments else 'none yet'
             return {
                 "response": (
-                    f"I can help with treatment information. "
-                    f"Currently cached: {', '.join(self.treatments) if self.treatments else 'none yet'}. "
-                    f"Search for any treatment name and I'll fetch live data from "
-                    f"{', '.join(self.active_scrapers)}!"
+                    f"I can help with health information based on real patient experiences. "
+                    f"To provide accurate data, please search for a specific treatment or disease "
+                    f"using the search bar first.\n\n"
+                    f"Currently available: {cached_list}\n\n"
+                    f"You can ask questions like:\n"
+                    f"- What are the common side effects?\n"
+                    f"- How effective is it according to patients?\n"
+                    f"- What treatment approaches are available?\n\n"
+                    f"*Information sourced from real patient discussions. "
+                    f"Always verify with your healthcare provider.*"
                 ),
                 "sources": [],
                 "treatment": None,
@@ -427,36 +467,67 @@ class TreatmentPipeline:
         data = self.aggregated_data.get(target_treatment)
         if not data:
             return {
-                "response": f"No data available for {target_treatment} yet. Try searching for it first.",
+                "response": (
+                    f"I found **{target_treatment}** but don't have patient data yet. "
+                    f"Please search for it using the search bar first, and I'll analyze live "
+                    f"discussions from Reddit, PubMed, Drugs.com, and YouTube."
+                ),
                 "sources": [],
                 "treatment": target_treatment,
             }
 
-        top_effects = data.get("side_effects", [])[:3]
-        effects_text = ", ".join(f"{e['name']} ({e['percentage']}%)" for e in top_effects)
-        eff = data.get("effectiveness", {})
-        sent = data.get("sentiment", {})
-        label = 'Positive' if sent.get('average_score', 0) > 0.1 else 'Neutral' if sent.get('average_score', 0) > -0.1 else 'Negative'
+        total = data.get('total_discussions', 0)
+        sources_list = list(data.get('sources', {}).get('breakdown', {}).keys())
 
-        response = (
-            f"**Overview of {target_treatment}:**\n\n"
-            f"Based on {data.get('total_discussions', 0)} patient discussions from {', '.join(data.get('sources', {}).get('breakdown', {}).keys())}:\n\n"
-            f"• **Top side effects:** {effects_text}\n"
-            f"• **Effectiveness:** {eff.get('effectiveness_label', 'N/A')} ({eff.get('positive_pct', 0)}% positive)\n"
-            f"• **Sentiment:** {label} (score: {sent.get('average_score', 0)})\n\n"
-            f"Ask about side effects, effectiveness, dosage, combinations, or credibility!"
+        # Build structured response
+        parts = [f"**{target_treatment}** — Based on {total} patient discussions from {', '.join(sources_list)}:\n"]
+
+        # Side effects
+        effects = data.get("side_effects", [])[:5]
+        if effects:
+            effects_text = ", ".join(f"{e['name']} ({e.get('percentage', 0)}%)" for e in effects)
+            parts.append(f"**Reported side effects:** {effects_text}")
+
+        # Effectiveness
+        eff = data.get("effectiveness", {})
+        if eff:
+            parts.append(
+                f"**Patient-reported outcomes:** {eff.get('positive_pct', 0)}% positive "
+                f"({eff.get('positive_reports', 0)} of {eff.get('total_posts', 0)}), "
+                f"{eff.get('negative_pct', 0)}% negative, "
+                f"{eff.get('neutral_pct', 0)}% neutral"
+            )
+
+        # Sentiment
+        sent = data.get("sentiment", {})
+        if sent:
+            avg = sent.get('average_score', 0)
+            tone = 'positive' if avg > 0.1 else 'negative' if avg < -0.1 else 'mixed/neutral'
+            parts.append(f"**Overall sentiment:** {tone} (score: {avg})")
+
+        # Dosages
+        dosages = data.get("dosages", [])[:3]
+        if dosages:
+            dose_text = ", ".join(f"{d['dosage']} ({d['count']}x)" for d in dosages)
+            parts.append(f"**Dosages mentioned:** {dose_text}")
+
+        parts.append(
+            "\n*Information sourced from real patient discussions. "
+            "Always verify with your healthcare provider.*"
         )
 
+        response_text = "\n".join(parts)
+
         relevant_sources = [
-            {"source": p["source"], "text": p["text"][:150] + "...", "url": p.get("url", "")}
+            {"source": p.get("source", ""), "text": p.get("text", "")[:150] + "...", "url": p.get("url", "")}
             for p in data.get("source_posts", [])[:5]
         ]
 
         return {
-            "response": response,
+            "response": response_text,
             "sources": relevant_sources,
             "treatment": target_treatment,
-            "total_discussions": data.get("total_discussions", 0),
+            "total_discussions": total,
         }
 
 

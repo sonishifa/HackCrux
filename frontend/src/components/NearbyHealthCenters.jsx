@@ -5,7 +5,7 @@ const FACILITY_TYPES = [
   { key: 'hospital', label: 'Hospitals', desc: 'Hospitals & medical centers' },
   { key: 'clinic', label: 'Clinics', desc: 'Clinics & health centers' },
   { key: 'doctor', label: 'Doctors', desc: 'Doctor practices' },
-  { key: 'pharmacy', label: 'Pharmacies', desc: 'Pharmacies & stores' },
+  { key: 'pharmacy', label: 'Medical Stores', desc: 'Pharmacies & medical stores' },
 ];
 
 const FACILITY_COLORS = {

@@ -6,7 +6,7 @@ export default function ChatAssistant() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hi! I\'m your **CuraTrace Intelligence Assistant**. Ask me about any disease or treatment — side effects, effectiveness, timelines, or alternative approaches.\n\nTry: *"What are the treatment options for Migraine?"*',
+      content: 'Welcome to the **CuraTrace Health Assistant**.\n\nI can help you understand treatments, side effects, and patient experiences based on real discussion data from Reddit, PubMed, Drugs.com, and YouTube.\n\nTo get started, search for a treatment or disease using the search bar, then ask me questions like:\n- What side effects have patients reported?\n- How effective is this according to patient experiences?\n- What are the different treatment approaches?\n\n*Information sourced from real patient discussions. Always verify with your healthcare provider.*',
       sources: [],
     },
   ]);
@@ -55,7 +55,6 @@ export default function ChatAssistant() {
   };
 
   const renderMarkdown = (text) => {
-    // Simple markdown rendering
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -68,16 +67,16 @@ export default function ChatAssistant() {
   return (
     <>
       <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)} id="chat-toggle-btn">
-        {isOpen ? '✕' : 'Chat'}
+        {isOpen ? 'Close' : 'Chat'}
       </button>
 
       {isOpen && (
         <div className="chat-panel" id="chat-panel">
           <div className="chat-header">
-            <div className="chat-header-icon">AI</div>
+            <div className="chat-header-icon" style={{ fontSize: 11, fontWeight: 700 }}>CT</div>
             <div>
-              <div className="chat-header-title">Treatment AI Assistant</div>
-              <div className="chat-header-status">● Online — Powered by NLP</div>
+              <div className="chat-header-title">CuraTrace Health Assistant</div>
+              <div className="chat-header-status">Online — Evidence-based responses</div>
             </div>
           </div>
 
@@ -95,12 +94,29 @@ export default function ChatAssistant() {
                   lineHeight: '1.5'
                 }}>
                   <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+
+                  {/* Discussion count badge */}
+                  {msg.treatment && msg.totalDiscussions > 0 && (
+                    <div style={{
+                      marginTop: 10, padding: '6px 10px', borderRadius: 6,
+                      background: 'rgba(21,101,192,0.08)', fontSize: 11, color: '#1565C0',
+                    }}>
+                      Based on {msg.totalDiscussions} patient discussions about {msg.treatment}
+                    </div>
+                  )}
+
+                  {/* Sources */}
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="chat-sources" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E2E8F0', fontSize: '12px' }}>
-                      <div style={{ color: '#7A8B9C', marginBottom: '8px' }}>Sources ({msg.sources.length}):</div>
+                      <div style={{ color: '#7A8B9C', marginBottom: '8px', fontWeight: 600 }}>
+                        Patient discussion sources ({msg.sources.length}):
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {msg.sources.slice(0, 3).map((s, j) => (
-                          <a key={j} className="chat-source-link" href={s.url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#1565C0', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <a key={j} className="chat-source-link" href={s.url || '#'} target="_blank" rel="noopener noreferrer" style={{
+                            color: '#1565C0', textDecoration: 'none', display: 'block',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
                             [{s.source}] {s.text}
                           </a>
                         ))}
@@ -122,11 +138,19 @@ export default function ChatAssistant() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Disclaimer bar */}
+          <div style={{
+            padding: '6px 16px', fontSize: 10, color: '#94a3b8', textAlign: 'center',
+            borderTop: '1px solid #E2E8F0', background: '#F8FAFC', lineHeight: 1.5,
+          }}>
+            Information sourced from real patient discussions. Always verify with your healthcare provider.
+          </div>
+
           <div className="chat-input-area">
             <input
               className="chat-input"
               type="text"
-              placeholder="Ask about any treatment..."
+              placeholder="Ask about any treatment or disease..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}

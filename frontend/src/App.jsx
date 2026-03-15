@@ -3,16 +3,23 @@ import './App.css';
 import SearchBar from './components/SearchBar';
 import TreatmentDashboard from './components/TreatmentDashboard';
 import ChatAssistant from './components/ChatAssistant';
+import HealthTimeline from './components/HealthTimeline';
+import CheckInCard from './components/CheckInCard';
+import { useSearchLogger } from './components/SearchLogger';
 import { createSearchStream, searchTreatment, fetchStats, fetchHealth } from './api/client';
 
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('search');
+  const [view, setView] = useState('search'); // 'search' | 'dashboard' | 'timeline'
   const [stats, setStats] = useState({ total_posts: 0, treatments_count: 0, active_sources: [] });
   const [sourceStatus, setSourceStatus] = useState({});
   const [progressMessages, setProgressMessages] = useState([]);
+  const [lastSearchedTreatment, setLastSearchedTreatment] = useState('');
+
+  // Search logger
+  const { logSearch } = useSearchLogger();
 
   // Fetch live stats and source status on mount
   useEffect(() => {
@@ -34,6 +41,10 @@ function App() {
     setLoading(true);
     setError(null);
     setProgressMessages([]);
+
+    // Silently log the search
+    logSearch(treatment);
+    setLastSearchedTreatment(treatment);
 
     try {
       // SSE streaming via client helper
@@ -104,6 +115,12 @@ function App() {
     { key: 'youtube', label: 'YouTube' },
   ];
 
+  // Navigation tabs
+  const navTabs = [
+    { key: 'search', label: 'Search', desc: 'Analyze treatments' },
+    { key: 'timeline', label: 'My Health Journey', desc: 'Track your journey' },
+  ];
+
   return (
     <div className="app">
       <header className="header">
@@ -152,6 +169,33 @@ function App() {
         </div>
       </header>
 
+      {/* Navigation tabs */}
+      <div style={{
+        display: 'flex', gap: 4, padding: '0 24px', marginTop: -8, marginBottom: 8,
+        borderBottom: '1px solid #E2E8F0', background: '#fff',
+      }}>
+        {navTabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => {
+              if (tab.key === 'search') handleBack();
+              else setView(tab.key);
+            }}
+            style={{
+              padding: '10px 16px', border: 'none', cursor: 'pointer',
+              background: 'transparent', fontSize: 13, fontWeight: 600,
+              color: (view === tab.key || (tab.key === 'search' && view === 'dashboard'))
+                ? '#1565C0' : '#7A8B9C',
+              borderBottom: (view === tab.key || (tab.key === 'search' && view === 'dashboard'))
+                ? '2px solid #1565C0' : '2px solid transparent',
+              transition: 'all 0.15s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <main className="main-content">
         {view === 'search' && (
           <>
@@ -180,6 +224,10 @@ function App() {
         {view === 'dashboard' && data && (
           <TreatmentDashboard data={data} onBack={handleBack} />
         )}
+
+        {view === 'timeline' && (
+          <HealthTimeline treatment={lastSearchedTreatment} />
+        )}
       </main>
 
       {/* User Safety Disclaimer */}
@@ -202,6 +250,7 @@ function App() {
       </footer>
 
       <ChatAssistant />
+      <CheckInCard />
     </div>
   );
 }
