@@ -53,7 +53,7 @@ export default function SearchBar({ onSearch, loading }) {
           <input
             type="text"
             className="search-input"
-            placeholder="Search any disease or treatment (e.g., Diabetes, Migraine, PCOS...)"
+            placeholder="Search any disease or treatment"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             disabled={loading}
@@ -63,17 +63,6 @@ export default function SearchBar({ onSearch, loading }) {
           </button>
         </div>
       </form>
-
-      {/* Live source indicators */}
-      {!loading && (
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 12, fontSize: 11, color: '#7A8B9C' }}>
-          <span>Live sources:</span>
-          <span style={{ color: '#43A047' }}>● Reddit</span>
-          <span style={{ color: '#43A047' }}>● PubMed</span>
-          <span style={{ color: '#43A047' }}>● Drugs.com</span>
-          <span style={{ color: '#7A8B9C' }}>○ YouTube (key optional)</span>
-        </div>
-      )}
 
       <div style={{ marginTop: 12, fontSize: 11, color: '#7A8B9C', textAlign: 'center' }}>
         Try searching: Diabetes, Migraine, PCOS, Lung Infection, Arthritis, Depression, or any treatment name

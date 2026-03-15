@@ -32,39 +32,6 @@ export default function TreatmentComparison({ currentTreatment, category, approa
     );
   }
 
-  // Radar chart data
-  const radarData = approaches.length > 1 ? [
-    {
-      metric: 'Speed',
-      ...Object.fromEntries(approaches.map(a => {
-        const text = (a.avg_improvement_time || '').toLowerCase();
-        let score = 50;
-        if (text.includes('1') && text.includes('week')) score = 90;
-        else if (text.includes('2') && text.includes('week')) score = 80;
-        else if (text.includes('3') || text.includes('4')) score = 65;
-        else if (text.includes('month')) score = 40;
-        return [a.approach, score];
-      })),
-    },
-    {
-      metric: 'Sentiment',
-      ...Object.fromEntries(approaches.map(a => [
-        a.approach,
-        (a.patient_sentiment || '').includes('positive') ? 80 :
-        (a.patient_sentiment || '').includes('mixed') ? 50 : 30,
-      ])),
-    },
-    {
-      metric: 'Evidence',
-      ...Object.fromEntries(approaches.map(a => [
-        a.approach,
-        a.approach === 'Allopathy' ? 85 :
-        a.approach === 'Lifestyle' ? 60 :
-        a.approach === 'Naturopathy' ? 45 : 30,
-      ])),
-    },
-  ] : [];
-
   return (
     <div className="comparison-section">
       <div className="glass-card full-width">
@@ -155,31 +122,6 @@ export default function TreatmentComparison({ currentTreatment, category, approa
             );
           })}
         </div>
-
-        {/* Radar chart */}
-        {radarData.length > 0 && (
-          <div style={{ width: '100%', maxWidth: 420, margin: '0 auto' }}>
-            <ResponsiveContainer width="100%" height={260}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="#E2E8F0" />
-                <PolarAngleAxis dataKey="metric" tick={{ fill: '#4A5B6C', fontSize: 11 }} />
-                <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
-                {approaches.map((a, i) => (
-                  <Radar
-                    key={a.approach}
-                    name={a.approach}
-                    dataKey={a.approach}
-                    stroke={COLORS[i % COLORS.length]}
-                    fill={COLORS[i % COLORS.length]}
-                    fillOpacity={0.12}
-                    strokeWidth={2}
-                  />
-                ))}
-                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, color: '#1A2B3C', fontSize: 12 }} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
       </div>
     </div>
   );
